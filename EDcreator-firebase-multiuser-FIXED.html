@@ -1,0 +1,3653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDcreator — Personal Dashboard</title>
+<style>
+  /* ─── DESIGN TOKENS ─── */
+  :root {
+    --bg:         #0a0c10;
+    --surface:    #111318;
+    --glass:      rgba(255,255,255,0.045);
+    --glass-b:    rgba(255,255,255,0.08);
+    --border:     rgba(255,255,255,0.07);
+    --border-h:   rgba(255,255,255,0.14);
+    --accent:     #6c63ff;
+    --accent2:    #a78bfa;
+    --green:      #10b981;
+    --red:        #f43f5e;
+    --yellow:     #f59e0b;
+    --blue:       #3b82f6;
+    --cyan:       #06b6d4;
+    --text:       #e2e8f0;
+    --text-m:     #94a3b8;
+    --text-d:     #475569;
+    --radius:     16px;
+    --radius-sm:  8px;
+    --shadow:     0 4px 32px rgba(0,0,0,0.5);
+    --shadow-lg:  0 8px 64px rgba(0,0,0,0.7);
+    --glow:       0 0 32px rgba(108,99,255,0.18);
+    --font:       'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  /* ─── RESET ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; scroll-behavior: smooth; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  input, textarea, select, button { font-family: var(--font); }
+  button { cursor: pointer; border: none; outline: none; }
+  input, textarea, select { outline: none; border: none; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+  /* ─── LOCK SCREEN ─── */
+  #lock-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 24px;
+  }
+  #lock-screen .lock-logo {
+    font-size: 2.4rem; font-weight: 800; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #lock-screen .lock-subtitle { color: var(--text-m); font-size: .9rem; }
+  #lock-pin-wrap {
+    display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  #lock-pin {
+    width: 200px; padding: 14px 18px; text-align: center; font-size: 1.6rem;
+    letter-spacing: 8px;
+    background: var(--glass); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    transition: border-color .2s;
+  }
+  #lock-pin:focus { border-color: var(--accent); }
+
+  #auth-wrap {
+    width: min(360px, 92vw);
+    display: flex; flex-direction: column; gap: 12px; align-items: stretch;
+  }
+  #auth-wrap .inp { text-align: left; font-size: .92rem; letter-spacing: 0; padding: 13px 15px; }
+  #auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .btn-lock.secondary { background: var(--glass); border: 1px solid var(--border-h); box-shadow: none; }
+  #auth-error { color: var(--red); font-size: .8rem; min-height: 18px; text-align: center; line-height: 1.4; }
+  #auth-hint { color: var(--text-d); font-size: .75rem; text-align: center; line-height: 1.6; }
+  .user-chip {
+    max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 8px 12px; border-radius: 999px;
+    background: var(--glass); border: 1px solid var(--border);
+    color: var(--text-m); font-size: .75rem;
+  }
+  #lock-error { color: var(--red); font-size: .8rem; min-height: 16px; }
+  #lock-hint { color: var(--text-d); font-size: .75rem; }
+  .btn-lock {
+    padding: 12px 32px; border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    color: #fff; font-weight: 600; font-size: .9rem;
+    transition: opacity .2s, transform .15s;
+    box-shadow: 0 4px 16px rgba(108,99,255,0.35);
+  }
+  .btn-lock:hover { opacity: .9; transform: translateY(-1px); }
+
+  /* ─── APP SHELL ─── */
+  #app { display: none; min-height: 100vh; }
+  #app.visible { display: flex; }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    width: 68px; min-height: 100vh; position: fixed; left: 0; top: 0;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px 0; gap: 6px; z-index: 100;
+    transition: width .25s cubic-bezier(.4,0,.2,1);
+  }
+  #sidebar:hover { width: 200px; }
+  .sidebar-logo {
+    font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; padding: 0 14px; width: 100%; text-align: center;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    width: calc(100% - 16px); padding: 11px 14px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: background .15s, color .15s;
+    color: var(--text-m); position: relative; overflow: hidden;
+    white-space: nowrap;
+  }
+  .nav-item svg { flex-shrink: 0; width: 20px; height: 20px; }
+  .nav-item .nav-label { font-size: .82rem; font-weight: 500; opacity: 0; transition: opacity .2s; }
+  #sidebar:hover .nav-label { opacity: 1; }
+  .nav-item:hover { background: var(--glass); color: var(--text); }
+  .nav-item.active { background: rgba(108,99,255,0.18); color: var(--accent2); }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 20%; height: 60%;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--accent);
+  }
+  .nav-spacer { flex: 1; }
+  .nav-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 0 8px; }
+
+  /* ─── MAIN ─── */
+  #main {
+    margin-left: 68px; flex: 1;
+    padding: 28px 32px;
+    min-height: 100vh;
+  }
+
+  /* ─── TOP BAR ─── */
+  #topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .topbar-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .top-time { font-family: var(--font-mono); font-size: .85rem; color: var(--text-m); }
+  .btn-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--glass); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-m); transition: all .15s;
+  }
+  .btn-icon:hover { background: var(--glass-b); color: var(--text); border-color: var(--border-h); }
+  .btn-icon svg { width: 16px; height: 16px; }
+
+  /* ─── SECTION PAGES ─── */
+  .page { display: none; animation: fadeUp .3s ease; }
+  .page.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── GLASS CARD ─── */
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(12px);
+    padding: 22px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .card:hover { border-color: var(--border-h); box-shadow: var(--glow); }
+  .card-title {
+    font-size: .72rem; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-m); margin-bottom: 14px;
+  }
+  .card-lg { padding: 28px; }
+
+  /* ─── GRID LAYOUTS ─── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
+  .mb-18 { margin-bottom: 18px; }
+  .mb-28 { margin-bottom: 28px; }
+
+  /* ─── STAT NUMBERS ─── */
+  .stat-big { font-size: 2rem; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+  .stat-big.green { color: var(--green); }
+  .stat-big.red   { color: var(--red); }
+  .stat-big.accent { color: var(--accent2); }
+  .stat-label { font-size: .78rem; color: var(--text-m); margin-top: 4px; }
+  .stat-sub { font-size: .72rem; color: var(--text-d); margin-top: 2px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 20px; font-size: .7rem; font-weight: 600;
+  }
+  .badge.up   { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge.down { background: rgba(244,63,94,0.15);  color: var(--red); }
+
+  /* ─── BALANCE CARD ─── */
+  .balance-hero {
+    background: linear-gradient(135deg, rgba(108,99,255,0.22), rgba(167,139,250,0.12));
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: var(--radius); padding: 28px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .balance-hero::after {
+    content: '';
+    position: absolute; top: -40%; right: -10%;
+    width: 240px; height: 240px;
+    background: radial-gradient(circle, rgba(108,99,255,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .balance-hero .acct-label { font-size: .72rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent2); margin-bottom: 6px; }
+  .balance-hero .balance-num { font-size: 2.8rem; font-weight: 800; letter-spacing: -2px; }
+  .balance-hero .balance-num span { font-size: 1.4rem; color: var(--text-m); }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600;
+    font-size: .8rem; transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    color: #fff; box-shadow: 0 4px 12px rgba(108,99,255,0.3);
+  }
+  .btn-primary:hover { box-shadow: 0 4px 20px rgba(108,99,255,0.5); transform: translateY(-1px); }
+  .btn-ghost {
+    background: var(--glass); border: 1px solid var(--border); color: var(--text-m);
+  }
+  .btn-ghost:hover { border-color: var(--border-h); color: var(--text); background: var(--glass-b); }
+  .btn-danger { background: rgba(244,63,94,0.15); color: var(--red); border: 1px solid rgba(244,63,94,0.2); }
+  .btn-danger:hover { background: rgba(244,63,94,0.25); }
+  .btn-success { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+  .btn-success:hover { background: rgba(16,185,129,0.25); }
+  .btn-sm { padding: 7px 14px; font-size: .75rem; }
+  .btn-xs { padding: 4px 10px; font-size: .7rem; }
+
+  /* ─── INPUTS ─── */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: .72rem; font-weight: 600; color: var(--text-m); letter-spacing: .5px; }
+  .inp {
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.05); border: 1.5px solid var(--border);
+    color: var(--text); font-size: .85rem; transition: border-color .15s;
+    width: 100%;
+  }
+  .inp:focus { border-color: var(--accent); }
+  .inp::placeholder { color: var(--text-d); }
+  .inp-row { display: flex; gap: 10px; align-items: flex-end; }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-wrap { background: rgba(255,255,255,0.06); border-radius: 99px; height: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .progress-fill.accent { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .progress-fill.green  { background: linear-gradient(90deg, var(--green), #34d399); }
+  .progress-fill.yellow { background: linear-gradient(90deg, var(--yellow), #fcd34d); }
+
+  /* ─── DIVIDER ─── */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* ─── TRANSACTION LIST ─── */
+  .tx-list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+  .tx-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    transition: background .12s;
+  }
+  .tx-item:hover { background: var(--glass); }
+  .tx-left { display: flex; align-items: center; gap: 10px; }
+  .tx-icon {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+  }
+  .tx-name { font-size: .83rem; font-weight: 500; }
+  .tx-cat  { font-size: .7rem; color: var(--text-d); }
+  .tx-date { font-size: .7rem; color: var(--text-d); text-align: right; }
+  .tx-amt  { font-size: .9rem; font-weight: 700; }
+  .tx-amt.green { color: var(--green); }
+  .tx-amt.red   { color: var(--red); }
+
+  /* ─── CATEGORY BADGES ─── */
+  .cat-food       { background: rgba(251,146,60,0.15); color: #fb923c; }
+  .cat-shopping   { background: rgba(167,139,250,0.15); color: var(--accent2); }
+  .cat-investment { background: rgba(16,185,129,0.15);  color: var(--green); }
+  .cat-bills      { background: rgba(59,130,246,0.15);  color: var(--blue); }
+  .cat-other      { background: rgba(148,163,184,0.1);  color: var(--text-m); }
+  .cat-income     { background: rgba(16,185,129,0.15);  color: var(--green); }
+  .cat-transfer   { background: rgba(6,182,212,0.15);   color: var(--cyan); }
+
+  /* ─── MINI CHART (custom bars) ─── */
+  .mini-chart { display: flex; align-items: flex-end; gap: 5px; height: 52px; }
+  .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .bar { border-radius: 4px 4px 0 0; width: 100%; min-height: 3px; transition: height .4s; }
+  .bar-label { font-size: .62rem; color: var(--text-d); white-space: nowrap; }
+
+  /* ─── SPEND CHART ─── */
+  .spend-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; margin: 12px 0; }
+  .sc-bar { border-radius: 6px 6px 0 0; flex: 1; min-height: 4px; position: relative; cursor: pointer; transition: opacity .15s; }
+  .sc-bar:hover { opacity: .75; }
+  .sc-bar::after { content: attr(data-tip); display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); padding: 3px 8px; border-radius: 6px; font-size: .68rem; white-space: nowrap; color: var(--text); }
+  .sc-bar:hover::after { display: block; }
+  .sc-labels { display: flex; gap: 6px; }
+  .sc-label { flex: 1; text-align: center; font-size: .62rem; color: var(--text-d); }
+
+  /* ─── CALENDAR ─── */
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+  .cal-header { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 8px; }
+  .cal-header-cell { text-align: center; font-size: .67rem; font-weight: 600; color: var(--text-d); padding: 4px 0; }
+  .cal-day {
+    aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 500; cursor: pointer; transition: all .15s;
+    background: rgba(255,255,255,0.03); color: var(--text-m); border: 1.5px solid transparent;
+    position: relative; user-select: none;
+  }
+  .cal-day.today  { border-color: var(--accent); color: var(--accent2); font-weight: 700; }
+  .cal-day.done   { background: rgba(16,185,129,0.25); color: #34d399; border-color: rgba(16,185,129,0.3); }
+  .cal-day.missed { background: rgba(244,63,94,0.15); color: var(--red); border-color: rgba(244,63,94,0.2); }
+  .cal-day.rest   { background: rgba(59,130,246,0.15); color: var(--blue); border-color: rgba(59,130,246,0.2); }
+  .cal-day.important { background: rgba(245,158,11,0.2); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+  .cal-day.empty  { cursor: default; opacity: 0.2; }
+  .cal-day.future { cursor: default; opacity: 0.35; }
+  .cal-day:not(.empty):not(.future):hover { transform: scale(1.08); border-color: var(--border-h); }
+  .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; position: absolute; bottom: 4px; opacity: .7; }
+
+  /* Date note indicator */
+  .cal-note-dot {
+    position: absolute; top: 4px; right: 4px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent2); opacity: .9;
+    box-shadow: 0 0 5px rgba(167,139,250,0.7);
+  }
+  /* Date note tooltip */
+  .cal-note-tip {
+    display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%); z-index: 200;
+    background: #1a1d2e; border: 1px solid var(--border-h);
+    border-radius: 8px; padding: 8px 12px;
+    font-size: .72rem; color: var(--text); line-height: 1.5;
+    white-space: pre-wrap; max-width: 200px; min-width: 120px;
+    box-shadow: var(--shadow); pointer-events: none;
+    text-align: left; font-weight: 400;
+  }
+  .cal-note-tip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #2a2d40;
+  }
+  .cal-day:hover .cal-note-tip { display: block; }
+
+  /* ─── HEATMAP ─── */
+  .heatmap { display: flex; gap: 3px; flex-wrap: wrap; }
+  .hm-cell {
+    width: 12px; height: 12px; border-radius: 2px;
+    background: rgba(255,255,255,0.05);
+    transition: background .15s; cursor: default;
+  }
+  .hm-0 { background: rgba(255,255,255,0.04); }
+  .hm-1 { background: rgba(16,185,129,0.35); }
+
+  /* ─── STREAK ─── */
+  .streak-fire {
+    font-size: 2.2rem; line-height: 1;
+  }
+  .streak-num { font-size: 2.6rem; font-weight: 900; letter-spacing: -2px; color: var(--yellow); }
+  .streak-label { font-size: .72rem; color: var(--text-m); }
+
+  /* ─── NOTES ─── */
+  .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .note-card {
+    background: var(--glass); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+    transition: all .15s; cursor: default; position: relative;
+    animation: fadeUp .25s ease;
+  }
+  .note-card:hover { border-color: var(--border-h); box-shadow: var(--glow); transform: translateY(-2px); }
+  .note-card.pinned { border-color: rgba(245,158,11,0.35); }
+  .note-card.pinned::before {
+    content: '📌'; position: absolute; top: 12px; right: 12px; font-size: .9rem;
+  }
+  .note-title { font-weight: 700; font-size: .92rem; margin-bottom: 8px; }
+  .note-body  { font-size: .8rem; color: var(--text-m); line-height: 1.55; white-space: pre-wrap; }
+  .note-footer { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .prio-badge {
+    padding: 2px 8px; border-radius: 99px; font-size: .65rem; font-weight: 700; letter-spacing: .5px;
+  }
+  .prio-high   { background: rgba(244,63,94,0.15); color: var(--red); }
+  .prio-medium { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .prio-low    { background: rgba(16,185,129,0.15); color: var(--green); }
+  .note-date { font-size: .68rem; color: var(--text-d); margin-left: auto; }
+  .note-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+  /* ─── CHECKLIST ─── */
+  .checklist { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .check-item { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+  .check-item input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .check-item.done span { text-decoration: line-through; color: var(--text-d); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  }
+  .modal-overlay.open { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: #13161e; border: 1px solid var(--border-h);
+    border-radius: var(--radius); padding: 28px; width: 480px; max-width: 96vw;
+    box-shadow: var(--shadow-lg); animation: slideUp .25s ease;
+    max-height: 90vh; overflow-y: auto;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  /* ─── SEGMENT CONTROL ─── */
+  .seg { display: flex; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 3px; gap: 3px; }
+  .seg-btn {
+    flex: 1; padding: 8px; border-radius: 6px; font-size: .78rem; font-weight: 600;
+    background: transparent; color: var(--text-m); transition: all .15s;
+  }
+  .seg-btn.active { background: var(--glass-b); color: var(--text); box-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+
+  /* ─── ANALYTICS ─── */
+  .analytics-header { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .analytics-val    { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px; }
+  .donut-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+  .donut-label { position: absolute; text-align: center; }
+  .donut-label .big  { font-size: 1.4rem; font-weight: 800; }
+  .donut-label .small { font-size: .68rem; color: var(--text-m); }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: .78rem; margin-bottom: 8px; }
+  .legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── TOOLTIP-PILL ─── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 99px;
+    font-size: .72rem; font-weight: 600;
+    background: rgba(255,255,255,0.06); color: var(--text-m);
+  }
+
+  /* ─── SEARCH ─── */
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-d); pointer-events: none; }
+  .search-wrap .inp { padding-left: 36px; }
+
+  /* ─── GOALS ─── */
+  .goal-item { background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 10px; }
+  .goal-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .goal-name { font-size: .85rem; font-weight: 600; }
+  .goal-amounts { font-size: .75rem; color: var(--text-m); }
+
+  /* ─── TOAST ─── */
+  #toast-wrap { position: fixed; bottom: 28px; right: 28px; z-index: 9000; display: flex; flex-direction: column; gap: 10px; }
+  .toast {
+    background: #1e2130; border: 1px solid var(--border-h); border-radius: var(--radius-sm);
+    padding: 12px 18px; font-size: .82rem; box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 10px; min-width: 220px;
+    animation: slideIn .25s ease; color: var(--text);
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error   { border-left: 3px solid var(--red); }
+  .toast.info    { border-left: 3px solid var(--accent); }
+
+  /* ─── MISC ─── */
+  .flex-row { display: flex; align-items: center; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .text-m { color: var(--text-m); font-size: .82rem; }
+  .text-d { color: var(--text-d); font-size: .75rem; }
+  .mt-8  { margin-top: 8px; }
+  .mt-12 { margin-top: 12px; }
+  .mt-16 { margin-top: 16px; }
+  .w100  { width: 100%; }
+
+  /* pie chart via conic */
+  .pie {
+    width: 130px; height: 130px; border-radius: 50%;
+    box-shadow: 0 0 0 6px rgba(255,255,255,0.04);
+  }
+
+  /* ─── CAL CONTEXT MENU ─── */
+  .ctx-menu {
+    position: fixed; z-index: 600;
+    background: #1a1d28; border: 1px solid var(--border-h);
+    border-radius: var(--radius-sm); padding: 6px;
+    box-shadow: var(--shadow); min-width: 160px; display: none;
+  }
+  .ctx-menu.open { display: block; }
+  .ctx-item {
+    padding: 9px 12px; border-radius: 6px; cursor: pointer;
+    font-size: .8rem; display: flex; align-items: center; gap: 8px; transition: background .12s;
+  }
+  .ctx-item:hover { background: var(--glass-b); }
+  .ctx-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* plans */
+  .plan-item {
+    background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px;
+    border: 1px solid var(--border); transition: border-color .15s;
+  }
+  .plan-item:hover { border-color: var(--border-h); }
+  .plan-icon { font-size: 1.2rem; line-height: 1; margin-top: 2px; }
+  .plan-body { flex: 1; }
+  .plan-title { font-size: .88rem; font-weight: 600; margin-bottom: 3px; }
+  .plan-deadline { font-size: .72rem; color: var(--text-d); }
+  .plan-deadline.soon { color: var(--yellow); }
+  .plan-deadline.past { color: var(--red); }
+
+  /* productivity score ring */
+  .score-ring { position: relative; width: 120px; height: 120px; }
+  .score-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+  .score-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+  .score-num { font-size: 1.7rem; font-weight: 900; color: var(--accent2); }
+  .score-sub { font-size: .65rem; color: var(--text-m); }
+  
+  /* --- responsive tight adjustments --- */
+  @media (max-width: 1100px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 800px) {
+    #main { padding: 16px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* ─── SOCIAL HUB ─── */
+  .sm-delta-up   { color: var(--green);  font-weight: 700; }
+  .sm-delta-down { color: var(--red);    font-weight: 700; }
+  .sm-delta-flat { color: var(--text-d); font-weight: 600; }
+  .sm-bar { border-radius: 4px 4px 0 0; flex: 1; min-height: 3px; transition: height .4s; position: relative; cursor: default; }
+  .sm-bar::after { content: attr(data-tip); display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); padding: 3px 8px; border-radius: 6px; font-size: .68rem; white-space: nowrap; color: var(--text); }
+  .sm-bar:hover::after { display: block; }
+  .sm-bar-label { flex: 1; text-align: center; font-size: .6rem; color: var(--text-d); margin-top: 4px; overflow: hidden; }
+  .milestone-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.03); }
+  .milestone-icon { font-size: 1.1rem; }
+  .milestone-label { font-size: .78rem; color: var(--text-m); }
+  .milestone-val { font-size: .9rem; font-weight: 700; margin-left: auto; }
+  .log-row td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  .log-row:hover td { background: rgba(255,255,255,0.02); }
+  .delta-cell { font-size: .68rem; display: block; }
+
+  /* ─── HABIT TRACKER ─── */
+  .habit-row {
+    display:flex; align-items:center; gap:14px;
+    padding:12px 16px; border-radius:var(--radius-sm);
+    background:rgba(255,255,255,0.03); border:1px solid var(--border);
+    transition:border-color .15s;
+  }
+  .habit-row:hover { border-color:var(--border-h); }
+  .habit-check {
+    width:26px; height:26px; border-radius:50%; border:2px solid;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0; transition:all .15s; font-size:.9rem;
+  }
+  .habit-check.done { color:#fff; }
+  .habit-emoji  { font-size:1.3rem; flex-shrink:0; }
+  .habit-name   { font-size:.88rem; font-weight:600; flex:1; }
+  .habit-streak { font-size:.72rem; color:var(--text-d); }
+  .habit-stat-card {
+    background:var(--glass); border:1px solid var(--border);
+    border-radius:var(--radius); padding:16px 18px;
+  }
+  .habit-hm-row  { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .habit-hm-label{ font-size:.72rem; color:var(--text-m); width:110px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .habit-hm-cells{ display:flex; gap:3px; }
+  .hm-h { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
+
+  /* ─── CONTENT IDEAS ─── */
+  .idea-card {
+    background:var(--glass); border:1px solid var(--border);
+    border-radius:var(--radius); padding:18px;
+    transition:all .2s; animation:fadeUp .2s ease;
+  }
+  .idea-card:hover { border-color:var(--border-h); transform:translateY(-2px); box-shadow:var(--glow); }
+  .idea-status-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 10px; border-radius:99px; font-size:.68rem; font-weight:700;
+  }
+  .idea-status-Idea     { background:rgba(245,158,11,0.15); color:var(--yellow); }
+  .idea-status-Scripted { background:rgba(167,139,250,0.15); color:var(--accent2); }
+  .idea-status-Recorded { background:rgba(225,48,108,0.15); color:#e1306c; }
+  .idea-status-Posted   { background:rgba(16,185,129,0.15); color:var(--green); }
+  .idea-topic-badge {
+    padding:2px 8px; border-radius:99px; font-size:.65rem; font-weight:600;
+    background:rgba(255,255,255,0.06); color:var(--text-m);
+  }
+
+  /* ─── GOAL COUNTDOWN ─── */
+  .goal-countdown-card {
+    border-radius:var(--radius); padding:24px;
+    transition:all .2s; position:relative; overflow:hidden;
+    animation:fadeUp .25s ease;
+  }
+  .goal-countdown-card::before {
+    content:''; position:absolute; top:-30%; right:-10%;
+    width:180px; height:180px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .countdown-days { font-size:3.2rem; font-weight:900; letter-spacing:-2px; line-height:1; }
+  .countdown-label { font-size:.72rem; color:rgba(255,255,255,0.6); margin-top:2px; }
+  .countdown-title { font-size:1rem; font-weight:700; margin:12px 0 4px; }
+  .countdown-desc  { font-size:.75rem; color:rgba(255,255,255,0.55); }
+  .countdown-deadline { font-size:.7rem; color:rgba(255,255,255,0.45); margin-top:10px; }
+  .timeline-item {
+    display:flex; align-items:center; gap:14px;
+    padding:12px 0; border-bottom:1px solid var(--border);
+  }
+  .timeline-item:last-child { border-bottom:none; }
+  .timeline-dot  { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+  .timeline-name { font-size:.85rem; font-weight:600; flex:1; }
+  .timeline-days { font-size:.78rem; font-weight:700; }
+  .timeline-date { font-size:.7rem; color:var(--text-d); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ LOCK SCREEN ══════════════════════ -->
+<div id="lock-screen">
+  <div class="lock-logo">EDcreator</div>
+  <div class="lock-subtitle">Cloud Dashboard • Login / Create Account</div>
+  <div id="auth-wrap">
+    <input class="inp" id="auth-name" type="text" placeholder="Name (only for new account)" autocomplete="name">
+    <input class="inp" id="auth-email" type="email" placeholder="Email address" autocomplete="email">
+    <input class="inp" id="auth-password" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="auth-error"></div>
+    <div id="auth-actions">
+      <button class="btn-lock" onclick="loginUser()">Login</button>
+      <button class="btn-lock secondary" onclick="signupUser()">Create</button>
+    </div>
+    <div id="auth-hint">Each account gets a private empty dashboard synced with Firebase.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════ APP ══════════════════════ -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">EDcreator</div>
+
+    <div class="nav-item active" onclick="goPage('finance', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      <span class="nav-label">Finance</span>
+    </div>
+    <div class="nav-item" onclick="goPage('calendar', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="nav-label">Consistency</span>
+    </div>
+    <div class="nav-item" onclick="goPage('notes', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span class="nav-label">Notes & Plans</span>
+    </div>
+    <div class="nav-item" onclick="goPage('analytics', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      <span class="nav-label">Analytics</span>
+    </div>
+    <div class="nav-item" onclick="goPage('social', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.03z"/></svg>
+      <span class="nav-label">Social Hub</span>
+    </div>
+    <div class="nav-item" onclick="goPage('habits', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+      <span class="nav-label">Habit Tracker</span>
+    </div>
+    <div class="nav-item" onclick="goPage('ideas', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="nav-label">Content Ideas</span>
+    </div>
+    <div class="nav-item" onclick="goPage('goals', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span class="nav-label">Goal Countdown</span>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-bottom">
+      <div class="nav-item" onclick="exportBackup()" title="Export backup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="nav-label">Export</span>
+      </div>
+      <div class="nav-item" onclick="document.getElementById('importFile').click()" title="Import backup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span class="nav-label">Import</span>
+      </div>
+      <div class="nav-item" onclick="lockApp()" title="Logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span class="nav-label">Logout</span>
+      </div>
+    </div>
+  </nav>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)">
+
+  <!-- MAIN CONTENT -->
+  <main id="main">
+    <div id="topbar">
+      <div class="topbar-title" id="page-title">Finance</div>
+      <div class="topbar-right">
+        <div class="top-time" id="clock">00:00:00</div>
+        <div class="user-chip" id="user-chip" title="Signed in user"></div>
+        <button class="btn-icon" title="Settings" onclick="openSettings()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: FINANCE ══ -->
+    <div id="page-finance" class="page active">
+
+      <!-- Balance Cards Row -->
+      <div class="grid-2 mb-18">
+        <!-- Main Account -->
+        <div class="balance-hero">
+          <div class="acct-label">💳 Main Account</div>
+          <div class="balance-num"><span>₹</span> <span id="main-bal">0.00</span></div>
+          <div style="display:flex;gap:16px;margin-top:14px;">
+            <div>
+              <div style="font-size:.68rem;color:var(--green);font-weight:600;">↑ Monthly Income</div>
+              <div style="font-size:1rem;font-weight:700;" id="main-income">₹0.00</div>
+            </div>
+            <div>
+              <div style="font-size:.68rem;color:var(--red);font-weight:600;">↓ Monthly Expenses</div>
+              <div style="font-size:1rem;font-weight:700;" id="main-exp">₹0.00</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button class="btn btn-success btn-sm" onclick="openTxModal('income','main')">+ Add Money</button>
+            <button class="btn btn-danger btn-sm" onclick="openTxModal('expense','main')">− Expense</button>
+            <button class="btn btn-ghost btn-sm" onclick="openTxModal('transfer','main')">⇄ Transfer</button>
+          </div>
+        </div>
+
+        <!-- Savings Account -->
+        <div class="card card-lg" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.08));border-color:rgba(16,185,129,0.25);">
+          <div class="acct-label" style="color:var(--green);font-size:.72rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">🏦 Savings Account</div>
+          <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1.5px;"><span style="font-size:1.2rem;color:var(--text-m)">₹</span> <span id="sav-bal">0.00</span></div>
+          <!-- Goal -->
+          <div style="margin-top:14px;">
+            <div class="flex-between mb-18" style="margin-bottom:6px;">
+              <span style="font-size:.75rem;color:var(--text-m);">Savings Goal</span>
+              <span style="font-size:.75rem;color:var(--green);font-weight:700;" id="sav-goal-pct">0%</span>
+            </div>
+            <div class="progress-wrap"><div class="progress-fill green" id="sav-goal-bar" style="width:0%"></div></div>
+            <div class="flex-between mt-8" style="font-size:.7rem;color:var(--text-d);">
+              <span id="sav-goal-curr">₹0</span><span id="sav-goal-target">Goal: ₹0</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="btn btn-success btn-sm" onclick="openTxModal('income','savings')">+ Save</button>
+            <button class="btn btn-danger btn-sm" onclick="openTxModal('expense','savings')">− Withdraw</button>
+            <button class="btn btn-ghost btn-sm" onclick="openGoalModal()">🎯 Set Goal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spending Chart + Category Breakdown -->
+      <div class="grid-2 mb-18">
+        <div class="card">
+          <div class="card-title">Monthly Spending</div>
+          <div class="spend-chart" id="spend-chart"></div>
+          <div class="sc-labels" id="spend-labels"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Category Breakdown</div>
+          <div style="display:flex;align-items:center;gap:20px;margin-top:4px;">
+            <canvas id="cat-pie" width="110" height="110" style="border-radius:50%;"></canvas>
+            <div id="cat-legend" style="flex:1;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transaction History -->
+      <div class="card">
+        <div class="flex-between mb-18" style="margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">Transaction History</div>
+          <div style="display:flex;gap:8px;">
+            <select class="inp" id="tx-filter" onchange="renderTxList()" style="padding:5px 10px;font-size:.75rem;width:auto;">
+              <option value="all">All Accounts</option>
+              <option value="main">Main</option>
+              <option value="savings">Savings</option>
+            </select>
+            <select class="inp" id="tx-cat-filter" onchange="renderTxList()" style="padding:5px 10px;font-size:.75rem;width:auto;">
+              <option value="all">All Categories</option>
+              <option>Food</option><option>Shopping</option><option>Investment</option><option>Bills</option><option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="tx-list" id="tx-list">
+          <div style="color:var(--text-d);text-align:center;padding:24px;font-size:.82rem;">No transactions yet. Add your first!</div>
+        </div>
+      </div>
+    </div><!-- /page-finance -->
+
+    <!-- ══ PAGE: CALENDAR ══ -->
+    <div id="page-calendar" class="page">
+      <!-- Stats row -->
+      <div class="grid-3 mb-18">
+        <div class="card" style="text-align:center;">
+          <div class="streak-fire">🔥</div>
+          <div class="streak-num" id="streak-cur">0</div>
+          <div class="streak-label">Current Streak</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="streak-fire">🏆</div>
+          <div class="streak-num" style="color:var(--accent2);" id="streak-best">0</div>
+          <div class="streak-label">Longest Streak</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">📅</div>
+          <div class="streak-num" style="font-size:1.8rem;color:var(--green);" id="cal-done-pct">0%</div>
+          <div class="streak-label">This Month Completion</div>
+        </div>
+        <!-- Total Done -->
+        <div class="card" style="text-align:center;background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.2);">
+          <div style="font-size:2rem;margin-bottom:4px;">✅</div>
+          <div class="streak-num" style="font-size:2rem;color:var(--green);" id="cal-total-done">0</div>
+          <div class="streak-label">Total Days Done</div>
+          <div style="font-size:.7rem;color:var(--text-d);margin-top:3px;" id="cal-total-done-sub"></div>
+        </div>
+        <!-- Total Missed -->
+        <div class="card" style="text-align:center;background:rgba(244,63,94,0.07);border-color:rgba(244,63,94,0.2);">
+          <div style="font-size:2rem;margin-bottom:4px;">❌</div>
+          <div class="streak-num" style="font-size:2rem;color:var(--red);" id="cal-total-missed">0</div>
+          <div class="streak-label">Total Days Missed</div>
+          <div style="font-size:.7rem;color:var(--text-d);margin-top:3px;" id="cal-total-missed-sub"></div>
+        </div>
+        <!-- Done vs Missed breakdown -->
+        <div class="card" style="text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">📊</div>
+          <div class="streak-num" style="font-size:2rem;color:var(--accent2);" id="cal-success-rate">—</div>
+          <div class="streak-label">Overall Success Rate</div>
+          <div style="margin-top:10px;">
+            <div class="progress-wrap" style="height:7px;border-radius:99px;overflow:hidden;background:rgba(244,63,94,0.25);">
+              <div id="cal-rate-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),#34d399);transition:width .5s;" ></div>
+            </div>
+            <div class="flex-between mt-8" style="font-size:.68rem;">
+              <span style="color:var(--green);" id="cal-rate-done-lbl">0 done</span>
+              <span style="color:var(--red);" id="cal-rate-missed-lbl">0 missed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- This month breakdown -->
+      <div class="card mb-18" style="padding:18px 22px;">
+        <div class="flex-between" style="margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:0;">This Month — Done vs Missed</div>
+          <div style="font-size:.75rem;color:var(--text-m);" id="cal-month-name-label"></div>
+        </div>
+        <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.18);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">✅</div>
+            <div>
+              <div style="font-size:1.4rem;font-weight:900;color:var(--green);" id="cal-month-done">0</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Done this month</div>
+            </div>
+          </div>
+          <div style="width:1px;height:36px;background:var(--border);"></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(244,63,94,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">❌</div>
+            <div>
+              <div style="font-size:1.4rem;font-weight:900;color:var(--red);" id="cal-month-missed">0</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Missed this month</div>
+            </div>
+          </div>
+          <div style="width:1px;height:36px;background:var(--border);"></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">◎</div>
+            <div>
+              <div style="font-size:1.4rem;font-weight:900;color:var(--blue);" id="cal-month-rest">0</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Rest days</div>
+            </div>
+          </div>
+          <div style="width:1px;height:36px;background:var(--border);"></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">★</div>
+            <div>
+              <div style="font-size:1.4rem;font-weight:900;color:var(--yellow);" id="cal-month-important">0</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Important days</div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <div class="progress-wrap" style="height:8px;background:rgba(244,63,94,0.2);">
+              <div id="cal-month-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),#34d399);transition:width .5s;"></div>
+            </div>
+            <div style="font-size:.7rem;color:var(--text-m);margin-top:5px;text-align:center;" id="cal-month-pct-lbl"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Calendar -->
+      <div class="card mb-18">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">‹</button>
+            <div style="font-size:1.1rem;font-weight:700;" id="cal-month-label">June 2026</div>
+            <button class="btn btn-ghost btn-sm" onclick="calNav(1)">›</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="pill" style="background:rgba(16,185,129,0.12);color:var(--green);">✓ Done</span>
+            <span class="pill" style="background:rgba(244,63,94,0.1);color:var(--red);">✕ Missed</span>
+            <span class="pill" style="background:rgba(59,130,246,0.1);color:var(--blue);">◎ Rest</span>
+            <span class="pill" style="background:rgba(245,158,11,0.1);color:var(--yellow);">★ Important</span>
+          </div>
+        </div>
+        <div class="cal-header" id="cal-header"></div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="card">
+        <div class="card-title">365-Day Consistency Heatmap</div>
+        <div class="heatmap" id="heatmap" style="margin-top:10px;"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;">
+          <span style="font-size:.68rem;color:var(--text-d);">Less</span>
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(255,255,255,0.04);"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.25);"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.5);"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.8);"></div>
+          <span style="font-size:.68rem;color:var(--text-d);">More</span>
+        </div>
+      </div>
+    </div><!-- /page-calendar -->
+
+    <!-- ══ PAGE: NOTES ══ -->
+    <div id="page-notes" class="page">
+      <!-- Sub-tabs -->
+      <div class="seg mb-18" style="max-width:280px;">
+        <button class="seg-btn active" id="tab-notes-btn" onclick="switchNotesTab('notes')">📝 Notes</button>
+        <button class="seg-btn" id="tab-plans-btn" onclick="switchNotesTab('plans')">🗓 Plans</button>
+      </div>
+
+      <!-- Notes panel -->
+      <div id="notes-panel">
+        <div class="flex-between mb-18" style="margin-bottom:16px;gap:12px;">
+          <div class="search-wrap" style="flex:1;max-width:340px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="inp" id="note-search" placeholder="Search notes…" oninput="renderNotes()">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <select class="inp" id="note-prio-filter" onchange="renderNotes()" style="padding:7px 10px;font-size:.78rem;width:auto;">
+              <option value="all">All Priorities</option>
+              <option>High</option><option>Medium</option><option>Low</option>
+            </select>
+            <button class="btn btn-primary" onclick="openNoteModal()">+ New Note</button>
+          </div>
+        </div>
+        <div class="notes-grid" id="notes-grid">
+          <div style="color:var(--text-d);font-size:.82rem;padding:24px;text-align:center;grid-column:1/-1;">No notes yet. Create your first!</div>
+        </div>
+      </div>
+
+      <!-- Plans panel -->
+      <div id="plans-panel" style="display:none;">
+        <div class="flex-between mb-18" style="margin-bottom:16px;">
+          <div style="font-size:.85rem;color:var(--text-m);">Upcoming plans & deadlines</div>
+          <button class="btn btn-primary" onclick="openPlanModal()">+ Add Plan</button>
+        </div>
+        <div id="plans-list">
+          <div style="color:var(--text-d);font-size:.82rem;padding:24px;text-align:center;">No plans yet.</div>
+        </div>
+      </div>
+    </div><!-- /page-notes -->
+
+    <!-- ══ PAGE: ANALYTICS ══ -->
+    <div id="page-analytics" class="page">
+      <!-- Top stats -->
+      <div class="grid-4 mb-18">
+        <div class="card">
+          <div class="card-title">Total Saved</div>
+          <div class="stat-big green" id="an-saved">₹0</div>
+          <div class="stat-label">In savings account</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Monthly Spent</div>
+          <div class="stat-big red" id="an-spent">₹0</div>
+          <div class="stat-label">This month</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Consistency Streak</div>
+          <div class="stat-big" style="color:var(--yellow);" id="an-streak">0 🔥</div>
+          <div class="stat-label">Days in a row</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tasks Done</div>
+          <div class="stat-big accent" id="an-tasks">0</div>
+          <div class="stat-label">Checklist items completed</div>
+        </div>
+      </div>
+
+      <!-- Productivity Score + Breakdowns -->
+      <div class="grid-2 mb-18">
+        <div class="card" style="text-align:center;">
+          <div class="card-title">Productivity Score</div>
+          <div style="display:flex;justify-content:center;margin:16px 0;">
+            <div class="score-ring">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="10"/>
+                <circle id="score-arc" cx="60" cy="60" r="50" fill="none" stroke="url(#scoreGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"/>
+                <defs>
+                  <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#6c63ff"/>
+                    <stop offset="100%" stop-color="#a78bfa"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="score-center">
+                <div class="score-num" id="score-num">0</div>
+                <div class="score-sub">/ 100</div>
+              </div>
+            </div>
+          </div>
+          <div id="score-breakdown" style="font-size:.75rem;color:var(--text-m);line-height:2;text-align:left;padding:0 12px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Net Worth Overview</div>
+          <div style="margin-top:8px;">
+            <div class="flex-between" style="margin-bottom:12px;">
+              <span style="font-size:.85rem;color:var(--text-m);">Main Account</span>
+              <span style="font-size:.95rem;font-weight:700;" id="an-main-bal">₹0</span>
+            </div>
+            <div class="flex-between" style="margin-bottom:12px;">
+              <span style="font-size:.85rem;color:var(--text-m);">Savings</span>
+              <span style="font-size:.95rem;font-weight:700;color:var(--green);" id="an-sav-bal">₹0</span>
+            </div>
+            <div class="divider"></div>
+            <div class="flex-between">
+              <span style="font-size:.9rem;font-weight:600;">Total Net Worth</span>
+              <span style="font-size:1.15rem;font-weight:800;color:var(--accent2);" id="an-net">₹0</span>
+            </div>
+            <div style="margin-top:16px;">
+              <div class="flex-between" style="font-size:.72rem;color:var(--text-d);margin-bottom:6px;">
+                <span>Main</span><span>Savings</span>
+              </div>
+              <div class="progress-wrap">
+                <div class="progress-fill accent" id="an-split-bar" style="width:50%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly trend -->
+      <div class="card">
+        <div class="card-title">6-Month Income vs Expenses</div>
+        <div id="an-trend-chart" style="display:flex;align-items:flex-end;gap:10px;height:100px;margin:14px 0;"></div>
+        <div id="an-trend-labels" style="display:flex;gap:10px;"></div>
+      </div>
+    </div><!-- /page-analytics -->
+
+    <!-- ══ PAGE: SOCIAL MEDIA HUB ══ -->
+    <div id="page-social" class="page">
+
+      <!-- Profile header -->
+      <div class="card mb-18" style="background:linear-gradient(135deg,rgba(225,48,108,0.15),rgba(131,58,180,0.12),rgba(59,130,246,0.08));border-color:rgba(225,48,108,0.25);">
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+          <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">📸</div>
+          <div style="flex:1;">
+            <div style="font-size:1.1rem;font-weight:800;letter-spacing:-.5px;">@labibtrades</div>
+            <div style="font-size:.78rem;color:var(--text-m);margin-top:2px;">Instagram · Forex & Gold Trading Educator</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#a78bfa;" id="sm-ig-followers-latest">—</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Followers</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#06b6d4;" id="sm-tg-members-latest">—</div>
+              <div style="font-size:.68rem;color:var(--text-d);">TG Members</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#10b981;" id="sm-signal-sales-latest">—</div>
+              <div style="font-size:.68rem;color:var(--text-d);">Signal Sales</div>
+            </div>
+            <button class="btn btn-primary" onclick="openSocialLogModal()">+ Log Today's Stats</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI stat cards -->
+      <div class="grid-4 mb-18">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">📸</div>
+          <div class="card-title" style="margin-bottom:4px;">IG Followers</div>
+          <div style="font-size:1.7rem;font-weight:900;color:#e1306c;" id="sm-kpi-followers">—</div>
+          <div id="sm-kpi-followers-delta" style="font-size:.72rem;margin-top:4px;color:var(--text-d);"></div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">🎬</div>
+          <div class="card-title" style="margin-bottom:4px;">Reel Views</div>
+          <div style="font-size:1.7rem;font-weight:900;color:#f59e0b;" id="sm-kpi-reels">—</div>
+          <div id="sm-kpi-reels-delta" style="font-size:.72rem;margin-top:4px;color:var(--text-d);"></div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">✈️</div>
+          <div class="card-title" style="margin-bottom:4px;">TG Members</div>
+          <div style="font-size:1.7rem;font-weight:900;color:#06b6d4;" id="sm-kpi-tg">—</div>
+          <div id="sm-kpi-tg-delta" style="font-size:.72rem;margin-top:4px;color:var(--text-d);"></div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:1.4rem;margin-bottom:6px;">💰</div>
+          <div class="card-title" style="margin-bottom:4px;">Signal Sales</div>
+          <div style="font-size:1.7rem;font-weight:900;color:#10b981;" id="sm-kpi-sales">—</div>
+          <div id="sm-kpi-sales-delta" style="font-size:.72rem;margin-top:4px;color:var(--text-d);"></div>
+        </div>
+      </div>
+
+      <!-- Monthly Targets -->
+      <div class="grid-2 mb-18">
+
+        <!-- Follower Target -->
+        <div class="card" style="background:linear-gradient(135deg,rgba(225,48,108,0.08),rgba(131,58,180,0.06));border-color:rgba(225,48,108,0.2);">
+          <div class="flex-between" style="margin-bottom:14px;">
+            <div>
+              <div style="font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#e1306c;margin-bottom:3px;">🎯 Follower Target</div>
+              <div style="font-size:.75rem;color:var(--text-m);" id="sm-ftarget-label">Not set</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="openSocialGoalModal()">✏ Set Target</button>
+          </div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:2rem;font-weight:900;letter-spacing:-1px;color:#e1306c;" id="sm-ftarget-cur">—</div>
+              <div style="font-size:.7rem;color:var(--text-d);">Current followers</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:1.1rem;font-weight:700;color:var(--text-m);" id="sm-ftarget-need">—</div>
+              <div style="font-size:.7rem;color:var(--text-d);">needed to reach goal</div>
+            </div>
+          </div>
+          <div class="progress-wrap" style="height:8px;">
+            <div class="progress-fill" id="sm-ftarget-bar" style="width:0%;background:linear-gradient(90deg,#e1306c,#bc1888);border-radius:99px;height:100%;transition:width .5s;"></div>
+          </div>
+          <div class="flex-between mt-8" style="font-size:.7rem;color:var(--text-d);">
+            <span id="sm-ftarget-pct">0%</span>
+            <span>Target: <span id="sm-ftarget-goal">—</span></span>
+          </div>
+        </div>
+
+        <!-- Monthly Sales Target -->
+        <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(6,182,212,0.06));border-color:rgba(16,185,129,0.2);">
+          <div class="flex-between" style="margin-bottom:14px;">
+            <div>
+              <div style="font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--green);margin-bottom:3px;">💰 This Month's Sales Target</div>
+              <div style="font-size:.75rem;color:var(--text-m);" id="sm-starget-label">Not set</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="openSocialGoalModal()">✏ Set Target</button>
+          </div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:2rem;font-weight:900;letter-spacing:-1px;color:var(--green);" id="sm-starget-cur">—</div>
+              <div style="font-size:.7rem;color:var(--text-d);">Sales this month</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:1.1rem;font-weight:700;color:var(--text-m);" id="sm-starget-need">—</div>
+              <div style="font-size:.7rem;color:var(--text-d);">more to hit target</div>
+            </div>
+          </div>
+          <div class="progress-wrap" style="height:8px;">
+            <div class="progress-fill green" id="sm-starget-bar" style="width:0%;height:100%;border-radius:99px;transition:width .5s;"></div>
+          </div>
+          <div class="flex-between mt-8" style="font-size:.7rem;color:var(--text-d);">
+            <span id="sm-starget-pct">0%</span>
+            <span>Target: <span id="sm-starget-goal">—</span> sales</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Growth Charts -->
+      <div class="grid-2 mb-18">
+        <!-- Followers growth -->
+        <div class="card">
+          <div class="flex-between" style="margin-bottom:14px;">
+            <div class="card-title" style="margin-bottom:0;">📈 Instagram Growth</div>
+            <div class="pill">Last 10 logs</div>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:5px;height:80px;" id="sm-chart-followers"></div>
+          <div style="display:flex;gap:5px;margin-top:6px;" id="sm-chart-followers-labels"></div>
+          <div style="display:flex;gap:16px;margin-top:12px;">
+            <div style="font-size:.75rem;color:var(--text-m);">Posts: <span style="font-weight:700;color:var(--text);" id="sm-ig-posts-latest">—</span></div>
+            <div style="font-size:.75rem;color:var(--text-m);">Avg Reel Views: <span style="font-weight:700;color:var(--yellow);" id="sm-ig-reel-avg">—</span></div>
+          </div>
+        </div>
+        <!-- Telegram growth -->
+        <div class="card">
+          <div class="flex-between" style="margin-bottom:14px;">
+            <div class="card-title" style="margin-bottom:0;">✈️ Telegram Growth</div>
+            <div class="pill">Last 10 logs</div>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:5px;height:80px;" id="sm-chart-tg"></div>
+          <div style="display:flex;gap:5px;margin-top:6px;" id="sm-chart-tg-labels"></div>
+          <div style="display:flex;gap:16px;margin-top:12px;">
+            <div style="font-size:.75rem;color:var(--text-m);">t.me/underscore_trading</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal Sales chart + log table -->
+      <div class="grid-2 mb-18">
+        <div class="card">
+          <div class="card-title">💰 Signal Sales Trend</div>
+          <div style="display:flex;align-items:flex-end;gap:5px;height:80px;margin:10px 0;" id="sm-chart-sales"></div>
+          <div style="display:flex;gap:5px;" id="sm-chart-sales-labels"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏆 Best Milestones</div>
+          <div id="sm-milestones" style="display:flex;flex-direction:column;gap:8px;margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <!-- IG Content Performance This Month -->
+      <div class="card mb-18" style="background:linear-gradient(135deg,rgba(225,48,108,0.07),rgba(131,58,180,0.05));border-color:rgba(225,48,108,0.2);">
+        <div class="flex-between" style="margin-bottom:18px;">
+          <div>
+            <div style="font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#e1306c;margin-bottom:3px;">📸 This Month — Instagram Content Performance</div>
+            <div style="font-size:.75rem;color:var(--text-m);" id="ig-perf-month-label">—</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-xs" onclick="openSocialLogModal()">+ Update Stats</button>
+            <button class="btn btn-primary btn-sm" onclick="openReelModal()">+ Log Reel</button>
+          </div>
+        </div>
+
+        <!-- 5 KPI mini cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;">
+          <div style="background:rgba(225,48,108,0.1);border:1px solid rgba(225,48,108,0.2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;margin-bottom:3px;">🎬</div>
+            <div style="font-size:1.5rem;font-weight:900;color:#e1306c;" id="ig-perf-videos">—</div>
+            <div style="font-size:.65rem;color:var(--text-d);margin-top:2px;">Videos</div>
+          </div>
+          <div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;margin-bottom:3px;">📈</div>
+            <div style="font-size:1.5rem;font-weight:900;color:var(--accent2);" id="ig-perf-gained">—</div>
+            <div style="font-size:.65rem;color:var(--text-d);margin-top:2px;">Followers Gained</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;margin-bottom:3px;">👁</div>
+            <div style="font-size:1.5rem;font-weight:900;color:var(--yellow);" id="ig-perf-best-reel">—</div>
+            <div style="font-size:.65rem;color:var(--text-d);margin-top:2px;">Best Reel</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;margin-bottom:3px;">⚡</div>
+            <div style="font-size:1.5rem;font-weight:900;color:var(--green);" id="ig-perf-per-video">—</div>
+            <div style="font-size:.65rem;color:var(--text-d);margin-top:2px;">Followers/Video</div>
+          </div>
+          <div style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;margin-bottom:3px;">📊</div>
+            <div style="font-size:1.5rem;font-weight:900;color:var(--cyan);" id="ig-perf-total-views">—</div>
+            <div style="font-size:.65rem;color:var(--text-d);margin-top:2px;">Total Views</div>
+          </div>
+        </div>
+
+        <!-- Success Rate bar -->
+        <div style="margin-bottom:16px;">
+          <div class="flex-between" style="margin-bottom:6px;">
+            <span style="font-size:.78rem;font-weight:600;">Content Success Rate</span>
+            <span style="font-size:.78rem;font-weight:700;color:#e1306c;" id="ig-perf-rate-pct">—</span>
+          </div>
+          <div class="progress-wrap" style="height:10px;">
+            <div id="ig-perf-rate-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#e1306c,#bc1888);width:0%;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:.7rem;color:var(--text-d);margin-top:5px;" id="ig-perf-rate-label"></div>
+        </div>
+
+        <div class="grid-2" style="gap:16px;">
+          <!-- Reel views chart -->
+          <div>
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-d);margin-bottom:8px;">📊 Reel Views This Month</div>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:70px;" id="ig-reel-chart"></div>
+            <div style="display:flex;gap:4px;margin-top:5px;" id="ig-reel-chart-labels"></div>
+          </div>
+          <!-- Analysis insight box -->
+          <div>
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-d);margin-bottom:8px;">💡 Analysis</div>
+            <div id="ig-perf-analysis-text" style="font-size:.78rem;color:var(--text-m);line-height:1.7;">Log your stats to see analysis here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Individual Reel Log Table -->
+      <div class="card mb-18">
+        <div class="flex-between" style="margin-bottom:14px;">
+          <div>
+            <div class="card-title" style="margin-bottom:2px;">🎬 Individual Reel Performance</div>
+            <div style="font-size:.72rem;color:var(--text-d);">Track each reel — views, likes, comments, follower gain</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openReelModal()">+ Add Reel</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+            <thead>
+              <tr style="color:var(--text-d);font-size:.67rem;text-transform:uppercase;letter-spacing:.8px;">
+                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Date</th>
+                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Caption / Topic</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">👁 Views</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">❤️ Likes</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">💬 Comments</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">👤 Followers +</th>
+                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">Rating</th>
+                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);"></th>
+              </tr>
+            </thead>
+            <tbody id="reel-log-tbody">
+              <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-d);font-size:.8rem;">No reels logged yet. Click "+ Add Reel" to track your content.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Log History Table -->
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">📋 Stats Log History</div>
+          <button class="btn btn-ghost btn-sm" onclick="if(confirm('Clear all social logs?')){state.socialLogs=[];saveState();renderSocial();toast('Logs cleared','info');}">🗑 Clear Logs</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="sm-log-table" style="width:100%;border-collapse:collapse;font-size:.78rem;">
+            <thead>
+              <tr style="color:var(--text-d);font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;">
+                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Date</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">IG Followers</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">Posts</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">Reel Views</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">TG Members</th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);">Signal Sales</th>
+                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Note</th>
+                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);"></th>
+              </tr>
+            </thead>
+            <tbody id="sm-log-tbody">
+              <tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-d);">No logs yet. Click "+ Log Today's Stats" to start tracking.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /page-social -->
+
+    <!-- ══ PAGE: HABIT TRACKER ══ -->
+    <div id="page-habits" class="page">
+
+      <!-- Header -->
+      <div class="flex-between mb-18">
+        <div style="font-size:.82rem;color:var(--text-m);">Track daily habits — each gets its own streak & completion rate</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="habit-date-prev" onclick="habitDateNav(-1)">‹ Prev</button>
+          <div style="padding:8px 14px;background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;" id="habit-date-label"></div>
+          <button class="btn btn-ghost btn-sm" id="habit-date-next" onclick="habitDateNav(1)">Next ›</button>
+          <button class="btn btn-primary btn-sm" onclick="openHabitDefModal()">+ Add Habit</button>
+        </div>
+      </div>
+
+      <!-- Habit checklist for selected day -->
+      <div class="card mb-18">
+        <div class="card-title">Today's Habits</div>
+        <div id="habit-day-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+          <div style="color:var(--text-d);font-size:.82rem;padding:16px 0;">No habits added yet. Click "+ Add Habit" to create your first one.</div>
+        </div>
+      </div>
+
+      <!-- Habit stats grid -->
+      <div id="habit-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:18px;"></div>
+
+      <!-- 30-day heatmap per habit -->
+      <div class="card">
+        <div class="card-title">30-Day Overview</div>
+        <div id="habit-heatmap" style="margin-top:10px;"></div>
+      </div>
+    </div><!-- /page-habits -->
+
+    <!-- ══ PAGE: CONTENT IDEAS ══ -->
+    <div id="page-ideas" class="page">
+
+      <!-- Header -->
+      <div class="flex-between mb-18">
+        <div style="font-size:.82rem;color:var(--text-m);">Never run out of content — save, organize and track your reel ideas</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="search-wrap" style="max-width:220px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="inp" id="idea-search" placeholder="Search ideas…" oninput="renderIdeas()">
+          </div>
+          <select class="inp" id="idea-status-filter" onchange="renderIdeas()" style="padding:7px 10px;font-size:.78rem;width:auto;">
+            <option value="all">All Status</option>
+            <option value="Idea">💡 Idea</option>
+            <option value="Scripted">✍️ Scripted</option>
+            <option value="Recorded">🎬 Recorded</option>
+            <option value="Posted">✅ Posted</option>
+          </select>
+          <button class="btn btn-primary" onclick="openIdeaModal()">+ New Idea</button>
+        </div>
+      </div>
+
+      <!-- Status summary pills -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);border-radius:var(--radius-sm);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:1.4rem;font-weight:900;color:var(--yellow);" id="idea-count-idea">0</div>
+          <div style="font-size:.68rem;color:var(--text-d);">💡 Ideas</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);border-radius:var(--radius-sm);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:1.4rem;font-weight:900;color:var(--accent2);" id="idea-count-scripted">0</div>
+          <div style="font-size:.68rem;color:var(--text-d);">✍️ Scripted</div>
+        </div>
+        <div style="background:rgba(225,48,108,0.12);border:1px solid rgba(225,48,108,0.25);border-radius:var(--radius-sm);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:1.4rem;font-weight:900;color:#e1306c;" id="idea-count-recorded">0</div>
+          <div style="font-size:.68rem;color:var(--text-d);">🎬 Recorded</div>
+        </div>
+        <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius-sm);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:1.4rem;font-weight:900;color:var(--green);" id="idea-count-posted">0</div>
+          <div style="font-size:.68rem;color:var(--text-d);">✅ Posted</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:1.4rem;font-weight:900;color:var(--text);" id="idea-count-total">0</div>
+          <div style="font-size:.68rem;color:var(--text-d);">Total</div>
+        </div>
+      </div>
+
+      <!-- Ideas grid -->
+      <div id="ideas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
+    </div><!-- /page-ideas -->
+
+    <!-- ══ PAGE: GOAL COUNTDOWN ══ -->
+    <div id="page-goals" class="page">
+
+      <div class="flex-between mb-18">
+        <div style="font-size:.82rem;color:var(--text-m);">Visual countdown to your biggest goals — stay focused on what matters</div>
+        <button class="btn btn-primary" onclick="openGoalCountdownModal()">+ Add Goal</button>
+      </div>
+
+      <!-- Goals grid -->
+      <div id="goals-countdown-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;margin-bottom:28px;"></div>
+
+      <!-- Timeline view -->
+      <div class="card">
+        <div class="card-title">📅 Goals Timeline</div>
+        <div id="goals-timeline" style="margin-top:12px;"></div>
+      </div>
+    </div><!-- /page-goals -->
+
+  </main><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════════════════ MODALS ══════════════════════ -->
+
+<!-- Transaction Modal -->
+<div class="modal-overlay" id="modal-tx">
+  <div class="modal">
+    <div class="modal-title" id="tx-modal-title">Add Transaction</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Amount (₹)</label>
+        <input class="inp" type="number" id="tx-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="field" id="tx-cat-wrap">
+        <label>Category</label>
+        <select class="inp" id="tx-cat">
+          <option value="Food">🍔 Food</option>
+          <option value="Shopping">🛍 Shopping</option>
+          <option value="Investment">📈 Investment</option>
+          <option value="Bills">⚡ Bills</option>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+      <div class="field" id="tx-to-wrap" style="display:none;">
+        <label>Transfer To</label>
+        <select class="inp" id="tx-to">
+          <option value="savings">Savings Account</option>
+          <option value="main">Main Account</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Note (optional)</label>
+        <input class="inp" type="text" id="tx-note" placeholder="e.g. Grocery run">
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input class="inp" type="date" id="tx-date">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tx')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTx()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal-overlay" id="modal-goal">
+  <div class="modal">
+    <div class="modal-title">Set Savings Goal</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Goal Name</label>
+        <input class="inp" type="text" id="goal-name" placeholder="e.g. Emergency Fund">
+      </div>
+      <div class="field">
+        <label>Target Amount (₹)</label>
+        <input class="inp" type="number" id="goal-target" placeholder="50000">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-goal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal()">Save Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note Modal -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal">
+    <div class="modal-title" id="note-modal-title">New Note</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Title</label>
+        <input class="inp" type="text" id="note-title" placeholder="Note title…">
+      </div>
+      <div class="field">
+        <label>Content</label>
+        <textarea class="inp" id="note-content" rows="5" placeholder="Write your note…" style="resize:vertical;line-height:1.55;"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="field" style="flex:1;">
+          <label>Priority</label>
+          <select class="inp" id="note-prio">
+            <option value="High">🔴 High</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="Low">🟢 Low</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label>Pin Note</label>
+          <select class="inp" id="note-pin">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+      </div>
+      <!-- Checklist -->
+      <div class="field">
+        <label>Checklist Items (one per line)</label>
+        <textarea class="inp" id="note-checklist" rows="3" placeholder="Buy groceries&#10;Call client&#10;Review report" style="resize:vertical;font-size:.8rem;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save Note</button>
+    </div>
+    <input type="hidden" id="note-edit-id">
+  </div>
+</div>
+
+<!-- Plan Modal -->
+<div class="modal-overlay" id="modal-plan">
+  <div class="modal">
+    <div class="modal-title">Add Plan</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Plan Title</label>
+        <input class="inp" type="text" id="plan-title" placeholder="e.g. Launch trading course">
+      </div>
+      <div class="field">
+        <label>Description (optional)</label>
+        <textarea class="inp" id="plan-desc" rows="3" placeholder="Details…" style="resize:vertical;"></textarea>
+      </div>
+      <div class="field">
+        <label>Deadline</label>
+        <input class="inp" type="date" id="plan-deadline">
+      </div>
+      <div class="field">
+        <label>Priority</label>
+        <select class="inp" id="plan-prio">
+          <option value="High">🔴 High</option>
+          <option value="Medium" selected>🟡 Medium</option>
+          <option value="Low">🟢 Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-plan')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()">Save Plan</button>
+    </div>
+    <input type="hidden" id="plan-edit-id">
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <div class="modal-title">⚙️ Settings</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="field">
+        <label>Signed in as</label>
+        <div class="inp" id="settings-user-email" style="color:var(--text-m);">—</div>
+      </div>
+      <button class="btn btn-ghost" onclick="logoutUser()">Logout Account</button>
+      <div class="divider"></div>
+      <div style="color:var(--text-m);font-size:.8rem;line-height:1.7;">
+        <b>Currency:</b> ₹ INR (Indian Rupee) — fixed<br>
+        <b>Storage:</b> Firebase Authentication + Realtime Database<br>
+        <b>Privacy:</b> Each user can only access their own dashboard path.
+      </div>
+      <button class="btn btn-danger" onclick="if(confirm('Clear only YOUR dashboard data? This cannot be undone.'))clearAllData()">🗑 Clear My Dashboard Data</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-settings')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar Context Menu -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-item" onclick="setDayStatus('done')">
+    <div class="ctx-dot" style="background:var(--green)"></div> Mark as Done
+  </div>
+  <div class="ctx-item" onclick="setDayStatus('missed')">
+    <div class="ctx-dot" style="background:var(--red)"></div> Mark as Missed
+  </div>
+  <div class="ctx-item" onclick="setDayStatus('rest')">
+    <div class="ctx-dot" style="background:var(--blue)"></div> Mark as Rest Day
+  </div>
+  <div class="ctx-item" onclick="setDayStatus('important')">
+    <div class="ctx-dot" style="background:var(--yellow)"></div> Mark as Important
+  </div>
+  <div class="ctx-item" onclick="setDayStatus('')">
+    <div class="ctx-dot" style="background:var(--text-d)"></div> Clear
+  </div>
+  <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+  <div class="ctx-item" onclick="openDayNoteModal()">
+    <div class="ctx-dot" style="background:var(--accent2)"></div> 📝 Add / Edit Note
+  </div>
+  <div class="ctx-item" onclick="deleteDayNote()">
+    <div class="ctx-dot" style="background:var(--text-d)"></div> 🗑 Remove Note
+  </div>
+</div>
+
+<!-- Day Note Modal -->
+<div class="modal-overlay" id="modal-day-note">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title">📝 Note for <span id="day-note-date-label"></span></div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Your Note</label>
+        <textarea class="inp" id="day-note-text" rows="5" placeholder="Write a note for this day… e.g. Team meeting at 3pm, Workout PR, Important deadline" style="resize:vertical;line-height:1.6;"></textarea>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-d);">This note will appear as a tooltip when you hover over the date on the calendar.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-day-note')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDayNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- Social Log Modal -->
+<div class="modal-overlay" id="modal-social-log">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-title" id="social-log-modal-title">📊 Log Today's Stats</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Date</label>
+        <input class="inp" type="date" id="sl-date">
+      </div>
+      <div style="background:rgba(225,48,108,0.06);border:1px solid rgba(225,48,108,0.15);border-radius:var(--radius-sm);padding:14px;">
+        <div style="font-size:.72rem;font-weight:700;color:#e1306c;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">📸 Instagram</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field">
+            <label>Followers (total)</label>
+            <input class="inp" type="number" id="sl-ig-followers" placeholder="e.g. 1250" min="0">
+          </div>
+          <div class="field">
+            <label>Total Posts Count</label>
+            <input class="inp" type="number" id="sl-ig-posts" placeholder="e.g. 48" min="0">
+          </div>
+          <div class="field">
+            <label>Total Reel Views</label>
+            <input class="inp" type="number" id="sl-ig-reel-views" placeholder="e.g. 45000" min="0">
+          </div>
+          <div class="field">
+            <label>Videos Uploaded This Month</label>
+            <input class="inp" type="number" id="sl-ig-videos-month" placeholder="e.g. 8" min="0">
+          </div>
+          <div class="field">
+            <label>Followers Gained This Month</label>
+            <input class="inp" type="number" id="sl-ig-gained-month" placeholder="e.g. 120" min="0">
+          </div>
+          <div class="field">
+            <label>Best Reel Views (this month)</label>
+            <input class="inp" type="number" id="sl-ig-best-reel" placeholder="e.g. 12000" min="0">
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:var(--radius-sm);padding:14px;">
+        <div style="font-size:.72rem;font-weight:700;color:#06b6d4;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">✈️ Telegram (underscore_trading)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field">
+            <label>Members</label>
+            <input class="inp" type="number" id="sl-tg-members" placeholder="e.g. 340" min="0">
+          </div>
+          <div class="field">
+            <label>Signal Sales (this period)</label>
+            <input class="inp" type="number" id="sl-signal-sales" placeholder="e.g. 12" min="0">
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Note (optional)</label>
+        <input class="inp" type="text" id="sl-note" placeholder="e.g. Posted 2 reels, ran giveaway…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-social-log')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSocialLog()">Save Log</button>
+    </div>
+    <input type="hidden" id="sl-edit-id">
+  </div>
+</div>
+
+<!-- Social Goals Modal -->
+<div class="modal-overlay" id="modal-social-goals">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">🎯 Set Monthly Targets</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="background:rgba(225,48,108,0.07);border:1px solid rgba(225,48,108,0.18);border-radius:var(--radius-sm);padding:14px;">
+        <div style="font-size:.7rem;font-weight:700;color:#e1306c;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">📸 Instagram Follower Target</div>
+        <div class="field">
+          <label>Target Followers</label>
+          <input class="inp" type="number" id="sg-follower-target" placeholder="e.g. 5000" min="0">
+        </div>
+      </div>
+      <div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.18);border-radius:var(--radius-sm);padding:14px;">
+        <div style="font-size:.7rem;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">💰 This Month's Signal Sales Target</div>
+        <div class="field">
+          <label>Target Sales (this month)</label>
+          <input class="inp" type="number" id="sg-sales-target" placeholder="e.g. 30" min="0">
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-d);">Progress bars will update automatically based on your logged stats.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-social-goals')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSocialGoals()">Save Targets</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reel Log Modal -->
+<div class="modal-overlay" id="modal-reel">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-title" id="reel-modal-title">🎬 Log a Reel</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label>Date Posted</label>
+        <input class="inp" type="date" id="rl-date">
+      </div>
+      <div class="field">
+        <label>Caption / Topic</label>
+        <input class="inp" type="text" id="rl-caption" placeholder="e.g. Gold trade setup — XAU/USD breakdown">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field">
+          <label>👁 Views</label>
+          <input class="inp" type="number" id="rl-views" placeholder="e.g. 8400" min="0">
+        </div>
+        <div class="field">
+          <label>❤️ Likes</label>
+          <input class="inp" type="number" id="rl-likes" placeholder="e.g. 320" min="0">
+        </div>
+        <div class="field">
+          <label>💬 Comments</label>
+          <input class="inp" type="number" id="rl-comments" placeholder="e.g. 45" min="0">
+        </div>
+        <div class="field">
+          <label>👤 Followers Gained</label>
+          <input class="inp" type="number" id="rl-followers" placeholder="e.g. 28" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reel')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveReel()">Save Reel</button>
+    </div>
+    <input type="hidden" id="rl-edit-id">
+  </div>
+</div>
+
+<!-- Habit Definition Modal -->
+<div class="modal-overlay" id="modal-habit-def">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title" id="habit-def-title">+ Add Habit</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field"><label>Habit Name</label><input class="inp" type="text" id="hd-name" placeholder="e.g. Post a Reel, Study Charts, Exercise"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field"><label>Emoji</label><input class="inp" type="text" id="hd-emoji" placeholder="e.g. 🎬" maxlength="4"></div>
+        <div class="field"><label>Color</label>
+          <select class="inp" id="hd-color">
+            <option value="#6c63ff">Purple</option><option value="#10b981">Green</option>
+            <option value="#e1306c">Pink</option><option value="#f59e0b">Yellow</option>
+            <option value="#06b6d4">Cyan</option><option value="#3b82f6">Blue</option>
+            <option value="#f43f5e">Red</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="hd-delete-btn" style="margin-right:auto;display:none;" onclick="if(confirm('Delete this habit?')){delHabit(document.getElementById('hd-edit-id').value);closeModal('modal-habit-def');}">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-habit-def')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveHabitDef()">Save Habit</button>
+    </div>
+    <input type="hidden" id="hd-edit-id">
+  </div>
+</div>
+
+<!-- Content Idea Modal -->
+<div class="modal-overlay" id="modal-idea">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title" id="idea-modal-title">💡 New Content Idea</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field"><label>Idea Title</label><input class="inp" type="text" id="idea-title" placeholder="e.g. How I turned ₹5000 into ₹18000 in 3 trades"></div>
+      <div class="field"><label>Description / Script Notes</label><textarea class="inp" id="idea-desc" rows="4" placeholder="Key points, hook idea, CTA…" style="resize:vertical;line-height:1.55;"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field"><label>Topic</label>
+          <select class="inp" id="idea-topic">
+            <option>Gold/XAU</option><option>Forex</option><option>Risk Management</option>
+            <option>Psychology</option><option>Candlestick</option><option>Signals</option><option>Motivation</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field"><label>Status</label>
+          <select class="inp" id="idea-status">
+            <option value="Idea">💡 Idea</option><option value="Scripted">✍️ Scripted</option>
+            <option value="Recorded">🎬 Recorded</option><option value="Posted">✅ Posted</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="idea-delete-btn" style="margin-right:auto;display:none;" onclick="if(confirm('Delete this idea?')){delIdea(document.getElementById('idea-edit-id').value);closeModal('modal-idea');}">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-idea')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIdea()">Save Idea</button>
+    </div>
+    <input type="hidden" id="idea-edit-id">
+  </div>
+</div>
+
+<!-- Goal Countdown Modal -->
+<div class="modal-overlay" id="modal-goal-countdown">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title" id="goal-countdown-modal-title">🎯 Add Goal</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field"><label>Goal Title</label><input class="inp" type="text" id="gc-title" placeholder="e.g. Reach 10K followers on Instagram"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field"><label>Emoji / Icon</label><input class="inp" type="text" id="gc-emoji" placeholder="🎯" maxlength="4"></div>
+        <div class="field"><label>Accent Color</label>
+          <select class="inp" id="gc-color">
+            <option value="#6c63ff">Purple</option><option value="#10b981">Green</option>
+            <option value="#e1306c">Pink</option><option value="#f59e0b">Gold</option>
+            <option value="#06b6d4">Cyan</option><option value="#3b82f6">Blue</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Target Date / Deadline</label><input class="inp" type="date" id="gc-deadline"></div>
+      <div class="field"><label>Description (optional)</label><input class="inp" type="text" id="gc-desc" placeholder="Why this goal matters…"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="gc-delete-btn" style="margin-right:auto;display:none;" onclick="if(confirm('Delete this goal?')){delGoal(document.getElementById('gc-edit-id').value);closeModal('modal-goal-countdown');}">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-goal-countdown')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoalCountdown()">Save Goal</button>
+    </div>
+    <input type="hidden" id="gc-edit-id">
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="modal-delete-confirm">
+  <div class="modal" style="max-width:380px;">
+    <div style="font-size:2rem;margin-bottom:12px;text-align:center;">⚠️</div>
+    <div class="modal-title" id="del-confirm-title">Delete Item?</div>
+    <div id="del-confirm-msg" style="font-size:.85rem;color:var(--text-m);line-height:1.7;margin:16px 0;">This action cannot be undone.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete-confirm')">Cancel</button>
+      <button class="btn btn-danger" onclick="executeDelete()">🗑 DELETE</button>
+    </div>
+    <input type="hidden" id="del-type">
+    <input type="hidden" id="del-id">
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-wrap"></div>
+
+<!-- Firebase SDK: compat build keeps this single-file app compatible with inline onclick handlers -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+
+<!-- ══════════════════════ JAVASCRIPT ══════════════════════ -->
+<script>
+'use strict';
+/* ─────────── FIREBASE + DATA LAYER ───────────
+   SETUP REQUIRED:
+   1) Firebase config is already pasted for project edcreator-800bf.
+   2) Firebase Authentication → Sign-in method → enable Email/Password.
+   3) Realtime Database → Rules → use the rules from EDcreator-Firebase-Setup.md.
+   4) If your database URL differs, update databaseURL below.
+*/
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAB157f6iAKbOGQXaWQ2yEs9LfG2uT4XDc",
+  authDomain: "edcreator-800bf.firebaseapp.com",
+  // If Firebase Console shows a different Realtime Database URL, replace this line.
+  databaseURL: "https://edcreator-800bf-default-rtdb.firebaseio.com",
+  projectId: "edcreator-800bf",
+  storageBucket: "edcreator-800bf.firebasestorage.app",
+  messagingSenderId: "385557668491",
+  appId: "1:385557668491:web:39ebad8bf7742355e0aa8e",
+  measurementId: "G-3LDMJRDW86"
+};
+
+let auth = null;
+let database = null;
+let currentUser = null;
+let userDataRef = null;
+let userDataCallback = null;
+let saveTimer = null;
+let appStarted = false;
+const appEl = document.getElementById('app');
+const lockScreen = document.getElementById('lock-screen');
+
+function getEmptyState() {
+  return {
+    mainBal: 0,
+    savBal: 0,
+    transactions: [],     // {id,type:'income|expense|transfer',account:'main|savings',amount,category,note,date}
+    savGoal: { name:'', target: 0 },
+    calDays: {},          // 'YYYY-MM-DD': 'done|missed|rest|important'
+    calNotes: {},         // 'YYYY-MM-DD': 'note text'
+    notes: [],            // {id,title,content,priority,pinned,checklist:[{text,done}],createdAt}
+    plans: [],            // {id,title,desc,deadline,priority,done}
+    socialLogs: [],       // [{id, date, igFollowers, igPosts, igReelViews, tgMembers, signalSales, note}]
+    reelLogs: [],         // [{id, date, caption, views, likes, comments, followersGained}]
+    goals: [],            // [{id, title, deadline, emoji, color}] — goal countdowns
+    ideas: [],            // [{id, title, desc, topic, status, createdAt}] — content idea bank
+    habits: [],           // [{id, name, emoji, color}] — habit definitions
+    habitLogs: {},        // 'YYYY-MM-DD': {habitId: true/false}
+    socialGoals: { followerTarget:0, monthSalesTarget:0 }, // monthly targets
+  };
+}
+
+let state = getEmptyState();
+const APP_VERSION = 'v3-firebase-multi-user';
+
+function normalizeState(data) {
+  const base = getEmptyState();
+  const d = data || {};
+  const merged = Object.assign(base, d);
+  merged.savGoal = Object.assign(getEmptyState().savGoal, d.savGoal || {});
+  merged.socialGoals = Object.assign(getEmptyState().socialGoals, d.socialGoals || {});
+  ['transactions','notes','plans','socialLogs','reelLogs','goals','ideas','habits'].forEach(k => {
+    if(!Array.isArray(merged[k])) merged[k] = [];
+  });
+  if(!merged.calDays || typeof merged.calDays !== 'object') merged.calDays = {};
+  if(!merged.calNotes || typeof merged.calNotes !== 'object') merged.calNotes = {};
+  if(!merged.habitLogs || typeof merged.habitLogs !== 'object') merged.habitLogs = {};
+  delete merged.pin; // old local PIN is no longer used in Firebase version
+  return merged;
+}
+
+function cleanForFirebase(value) {
+  return JSON.parse(JSON.stringify(value || {}));
+}
+
+function firebaseConfigured() {
+  return typeof firebase !== 'undefined' && Object.values(FIREBASE_CONFIG).every(v => v && !String(v).includes('PASTE_'));
+}
+
+function showAuthError(msg) {
+  const err = document.getElementById('auth-error');
+  if(err) err.textContent = msg || '';
+}
+
+function setupFirebase() {
+  if (typeof firebase === 'undefined') {
+    showAuthError('Firebase SDK not loaded. Connect internet or check script URLs.');
+    return false;
+  }
+  if (!firebaseConfigured()) {
+    showAuthError('Firebase config is missing or invalid.');
+    const hint = document.getElementById('auth-hint');
+    if(hint) hint.innerHTML = 'Open the HTML file, search <b>FIREBASE_CONFIG</b>, and check your Firebase project values.';
+    return false;
+  }
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  database = firebase.database();
+  return true;
+}
+
+function setupAuthScreen() {
+  const pass = document.getElementById('auth-password');
+  if(pass) pass.addEventListener('keydown', e => { if(e.key==='Enter') loginUser(); });
+  if(!setupFirebase()) return;
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      attachUserDashboard(user);
+    } else {
+      detachUserDashboard();
+      currentUser = null;
+      state = getEmptyState();
+      appStarted = false;
+      appEl.classList.remove('visible');
+      lockScreen.style.display = 'flex';
+      updateAccountLabels();
+    }
+  });
+}
+
+function detachUserDashboard() {
+  if (userDataRef && userDataCallback) userDataRef.off('value', userDataCallback);
+  userDataRef = null;
+  userDataCallback = null;
+}
+
+function attachUserDashboard(user) {
+  detachUserDashboard();
+  showAuthError('Loading your dashboard…');
+  database.ref(`users/${user.uid}/profile`).update({
+    email: user.email || '',
+    name: user.displayName || '',
+    lastLoginAt: new Date().toISOString(),
+    appVersion: APP_VERSION
+  });
+  userDataRef = database.ref(`users/${user.uid}/dashboard`);
+  userDataCallback = snap => {
+    if (snap.exists()) {
+      state = normalizeState(snap.val());
+    } else {
+      state = getEmptyState();
+      userDataRef.set(cleanForFirebase(state));
+    }
+    showAuthError('');
+    lockScreen.style.display = 'none';
+    appEl.classList.add('visible');
+    updateAccountLabels();
+    if (!appStarted) {
+      appStarted = true;
+      initApp();
+    } else {
+      renderCurrentPage();
+    }
+  };
+  userDataRef.on('value', userDataCallback, err => {
+    showAuthError(err.message || 'Could not load dashboard. Check database rules.');
+  });
+}
+
+function saveState() {
+  if (!currentUser || !database) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    database.ref(`users/${currentUser.uid}/dashboard`).set(cleanForFirebase(state))
+      .catch(err => toast(err.message || 'Could not save data','error'));
+  }, 120);
+}
+
+function renderCurrentPage() {
+  if (currentPage==='finance')   renderFinance();
+  if (currentPage==='calendar')  renderCalendar();
+  if (currentPage==='notes')     { renderNotes(); renderPlans(); }
+  if (currentPage==='analytics') renderAnalytics();
+  if (currentPage==='social')    renderSocial();
+  if (currentPage==='habits')    renderHabits();
+  if (currentPage==='ideas')     renderIdeas();
+  if (currentPage==='goals')     renderGoals();
+}
+
+function updateAccountLabels() {
+  const email = currentUser ? (currentUser.email || 'Signed in') : '';
+  const chip = document.getElementById('user-chip');
+  if(chip) chip.textContent = email;
+  const settingsEmail = document.getElementById('settings-user-email');
+  if(settingsEmail) settingsEmail.textContent = email || 'Not signed in';
+}
+
+async function loginUser() {
+  if (!setupFirebase()) return;
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if(!email || !password) { showAuthError('Enter email and password.'); return; }
+  try {
+    showAuthError('Logging in…');
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (err) {
+    showAuthError(readableAuthError(err));
+  }
+}
+
+async function signupUser() {
+  if (!setupFirebase()) return;
+  const name = document.getElementById('auth-name').value.trim();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if(!email || !password) { showAuthError('Enter email and password.'); return; }
+  if(password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+  try {
+    showAuthError('Creating account…');
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    if(name) await cred.user.updateProfile({displayName:name});
+    currentUser = cred.user;
+    state = getEmptyState();
+    await database.ref(`users/${cred.user.uid}/profile`).set({
+      name, email, createdAt: new Date().toISOString(), appVersion: APP_VERSION
+    });
+    await database.ref(`users/${cred.user.uid}/dashboard`).set(cleanForFirebase(state));
+    toast('Account created!','success');
+  } catch (err) {
+    showAuthError(readableAuthError(err));
+  }
+}
+
+async function logoutUser() {
+  if(!auth) return;
+  try { await auth.signOut(); toast('Logged out','info'); }
+  catch(err) { toast(err.message || 'Logout failed','error'); }
+}
+
+function lockApp() { logoutUser(); }
+
+function readableAuthError(err) {
+  const code = err && err.code ? err.code : '';
+  if(code.includes('auth/email-already-in-use')) return 'This email already has an account. Login instead.';
+  if(code.includes('auth/invalid-email')) return 'Invalid email address.';
+  if(code.includes('auth/user-not-found') || code.includes('auth/wrong-password') || code.includes('auth/invalid-credential')) return 'Wrong email or password.';
+  if(code.includes('auth/weak-password')) return 'Password is too weak.';
+  if(code.includes('auth/network-request-failed')) return 'Network error. Check your internet.';
+  if(code.includes('auth/unauthorized-domain')) return 'This website domain is not authorized in Firebase. Add labibeddie12.github.io in Firebase Authentication → Settings → Authorized domains.';
+  if(code.includes('auth/operation-not-allowed')) return 'Email/Password login is not enabled in Firebase Authentication.';
+  return (err && err.message) ? err.message : 'Authentication failed.';
+}
+
+setupAuthScreen();
+
+/* ─────────── NAVIGATION ─────────── */
+let currentPage = 'finance';
+function goPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = {
+    finance:'Finance', calendar:'Consistency', notes:'Notes & Plans', analytics:'Analytics', social:'Social Media Hub', habits:'Habit Tracker', ideas:'Content Ideas', goals:'Goal Countdown'
+  }[name];
+  currentPage = name;
+  if (name==='finance')   renderFinance();
+  if (name==='calendar')  renderCalendar();
+  if (name==='notes')     { renderNotes(); renderPlans(); }
+  if (name==='analytics') renderAnalytics();
+  if (name==='social')    renderSocial();
+  if (name==='habits')    renderHabits();
+  if (name==='ideas')     renderIdeas();
+  if (name==='goals')     renderGoals();
+}
+
+/* ─────────── CLOCK ─────────── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ─────────── INIT ─────────── */
+function initApp() {
+  renderFinance();
+  buildCalHeader();
+  renderCalendar();
+  renderNotes();
+  renderPlans();
+  renderAnalytics();
+  renderSocial();
+  renderHabits();
+  renderIdeas();
+  renderGoals();
+}
+
+/* ─────────────────────────── FINANCE ─────────────────────────── */
+const fmt = n => Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function renderFinance() {
+  document.getElementById('main-bal').textContent = fmt(state.mainBal);
+  document.getElementById('sav-bal').textContent  = fmt(state.savBal);
+  // Monthly income/expense for main
+  const now = new Date(); const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let inc=0, exp=0;
+  state.transactions.filter(t=>t.account==='main'&&t.date&&t.date.startsWith(ym)).forEach(t=>{
+    if(t.type==='income'||t.type==='transfer_in') inc+=t.amount;
+    if(t.type==='expense'||t.type==='transfer_out') exp+=t.amount;
+  });
+  document.getElementById('main-income').textContent = '₹'+fmt(inc);
+  document.getElementById('main-exp').textContent    = '₹'+fmt(exp);
+  // Goal
+  const g = state.savGoal;
+  const pct = g.target>0 ? Math.min(100, Math.round(state.savBal/g.target*100)) : 0;
+  document.getElementById('sav-goal-pct').textContent  = pct+'%';
+  document.getElementById('sav-goal-bar').style.width  = pct+'%';
+  document.getElementById('sav-goal-curr').textContent = '₹'+fmt(state.savBal);
+  document.getElementById('sav-goal-target').textContent = g.name ? `${g.name}: ₹${fmt(g.target)}` : 'Goal: not set';
+  renderTxList();
+  renderSpendChart();
+  renderCatPie();
+}
+
+function renderTxList() {
+  const acctF = document.getElementById('tx-filter').value;
+  const catF  = document.getElementById('tx-cat-filter').value;
+  let txs = [...state.transactions].reverse();
+  if (acctF !== 'all') txs = txs.filter(t=>t.account===acctF);
+  if (catF  !== 'all') txs = txs.filter(t=>t.category===catF);
+  txs = txs.slice(0,50);
+  const el = document.getElementById('tx-list');
+  if (!txs.length) { el.innerHTML='<div style="color:var(--text-d);text-align:center;padding:24px;font-size:.82rem;">No transactions found.</div>'; return; }
+  const catIcons = {Food:'🍔',Shopping:'🛍',Investment:'📈',Bills:'⚡',Other:'📦',Income:'💰',Transfer:'🔄'};
+  const catClass = {Food:'cat-food',Shopping:'cat-shopping',Investment:'cat-investment',Bills:'cat-bills',Other:'cat-other','transfer_out':'cat-transfer','transfer_in':'cat-transfer','income':'cat-income'};
+  el.innerHTML = txs.map(t=>{
+    const isPos = t.type==='income'||t.type==='transfer_in';
+    const sign  = isPos ? '+' : '−';
+    const cls   = isPos ? 'green' : 'red';
+    const icon  = catIcons[t.category] || (t.type.includes('transfer')?'🔄':'💰');
+    const cc    = catClass[t.category?.toLowerCase()]||'cat-other';
+    const d     = t.date ? new Date(t.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+    const acctLabel = t.account==='main'?'Main':'Savings';
+    return `<div class="tx-item">
+      <div class="tx-left">
+        <div class="tx-icon ${cc}">${icon}</div>
+        <div>
+          <div class="tx-name">${t.note||t.category||'Transaction'}</div>
+          <div class="tx-cat">${t.category||t.type} · ${acctLabel}</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div class="tx-amt ${cls}">${sign}₹${fmt(t.amount)}</div>
+        <div class="tx-date">${d}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSpendChart() {
+  const now = new Date();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({ label: d.toLocaleString('default',{month:'short'}), ym: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` });
+  }
+  const vals = months.map(m=>{
+    return state.transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(m.ym))
+      .reduce((s,t)=>s+t.amount,0);
+  });
+  const max = Math.max(...vals,1);
+  const chartEl  = document.getElementById('spend-chart');
+  const labelsEl = document.getElementById('spend-labels');
+  chartEl.innerHTML  = months.map((m,i)=>{
+    const h = Math.max(4, Math.round(vals[i]/max*76));
+    return `<div class="sc-bar" data-tip="₹${fmt(vals[i])}" style="height:${h}px;background:linear-gradient(180deg,#6c63ff,#a78bfa66);"></div>`;
+  }).join('');
+  labelsEl.innerHTML = months.map(m=>`<div class="sc-label">${m.label}</div>`).join('');
+}
+
+function renderCatPie() {
+  const now = new Date(); const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const cats = {Food:0,Shopping:0,Investment:0,Bills:0,Other:0};
+  state.transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(ym)).forEach(t=>{
+    const c = t.category||'Other'; cats[c]=(cats[c]||0)+t.amount;
+  });
+  const total = Object.values(cats).reduce((a,b)=>a+b,0)||1;
+  const colors = ['#fb923c','#a78bfa','#10b981','#3b82f6','#94a3b8'];
+  const keys   = Object.keys(cats);
+  const canvas = document.getElementById('cat-pie');
+  const ctx    = canvas.getContext('2d');
+  let start = -Math.PI/2;
+  ctx.clearRect(0,0,110,110);
+  keys.forEach((k,i)=>{
+    const slice = (cats[k]/total)*2*Math.PI;
+    ctx.beginPath(); ctx.moveTo(55,55);
+    ctx.arc(55,55,50,start,start+slice);
+    ctx.closePath(); ctx.fillStyle=colors[i]; ctx.fill();
+    start+=slice;
+  });
+  // inner circle
+  ctx.beginPath(); ctx.arc(55,55,28,0,2*Math.PI);
+  ctx.fillStyle='#13161e'; ctx.fill();
+  // legend
+  document.getElementById('cat-legend').innerHTML = keys.map((k,i)=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${colors[i]}"></div>
+      <div style="flex:1;">${k}</div>
+      <div style="font-weight:700;color:${colors[i]};">${Math.round(cats[k]/total*100)}%</div>
+    </div>`).join('');
+}
+
+/* ─── TX Modal ─── */
+let _txType='expense', _txAccount='main';
+function openTxModal(type, account) {
+  _txType = type; _txAccount = account;
+  document.getElementById('tx-modal-title').textContent = type==='income'?'Add Income':type==='transfer'?'Transfer Funds':'Log Expense';
+  document.getElementById('tx-cat-wrap').style.display = (type==='expense')?'flex':'none';
+  document.getElementById('tx-to-wrap').style.display  = (type==='transfer')?'flex':'none';
+  if(type==='transfer') {
+    const toSel = document.getElementById('tx-to');
+    toSel.innerHTML = account==='main'
+      ? '<option value="savings">→ Savings Account</option>'
+      : '<option value="main">→ Main Account</option>';
+  }
+  document.getElementById('tx-amount').value='';
+  document.getElementById('tx-note').value='';
+  document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+  openModal('modal-tx');
+}
+function saveTx() {
+  const amt = parseFloat(document.getElementById('tx-amount').value);
+  if(!amt||amt<=0) { toast('Enter a valid amount','error'); return; }
+  const cat  = document.getElementById('tx-cat').value;
+  const note = document.getElementById('tx-note').value.trim();
+  const date = document.getElementById('tx-date').value;
+  const id   = Date.now();
+  if(_txType==='income') {
+    state[_txAccount==='main'?'mainBal':'savBal'] += amt;
+    state.transactions.push({id,type:'income',account:_txAccount,amount:amt,category:'Income',note,date});
+  } else if(_txType==='expense') {
+    if(state[_txAccount==='main'?'mainBal':'savBal'] < amt) { toast('Insufficient balance','error'); return; }
+    state[_txAccount==='main'?'mainBal':'savBal'] -= amt;
+    state.transactions.push({id,type:'expense',account:_txAccount,amount:amt,category:cat,note,date});
+  } else if(_txType==='transfer') {
+    const toAcc = document.getElementById('tx-to').value;
+    if(state[_txAccount==='main'?'mainBal':'savBal'] < amt) { toast('Insufficient balance','error'); return; }
+    state[_txAccount==='main'?'mainBal':'savBal'] -= amt;
+    state[toAcc==='main'?'mainBal':'savBal'] += amt;
+    state.transactions.push({id,type:'transfer_out',account:_txAccount,amount:amt,category:'Transfer',note:`To ${toAcc}`,date});
+    state.transactions.push({id:id+1,type:'transfer_in',account:toAcc,amount:amt,category:'Transfer',note:`From ${_txAccount}`,date});
+  }
+  saveState(); closeModal('modal-tx'); renderFinance();
+  toast(_txType==='income'?'Money added!':_txType==='transfer'?'Transferred!':'Expense logged!','success');
+}
+
+function openGoalModal() {
+  document.getElementById('goal-name').value   = state.savGoal.name||'';
+  document.getElementById('goal-target').value = state.savGoal.target||'';
+  openModal('modal-goal');
+}
+function saveGoal() {
+  const name   = document.getElementById('goal-name').value.trim()||'Savings Goal';
+  const target = parseFloat(document.getElementById('goal-target').value)||0;
+  state.savGoal = {name,target};
+  saveState(); closeModal('modal-goal'); renderFinance();
+  toast('Goal saved!','success');
+}
+
+/* ─────────────────────────── CALENDAR ─────────────────────────── */
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let ctxDate = null;
+
+function buildCalHeader() {
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  document.getElementById('cal-header').innerHTML = days.map(d=>`<div class="cal-header-cell">${d}</div>`).join('');
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if(calMonth>11){calMonth=0;calYear++;}
+  if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const today = new Date();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const monthName = new Date(calYear,calMonth).toLocaleString('default',{month:'long',year:'numeric'});
+  document.getElementById('cal-month-label').textContent = monthName;
+
+  let html = '';
+  for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
+  for(let d=1;d<=daysInMonth;d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const status  = state.calDays[dateStr]||'';
+    const isToday = today.getDate()===d&&today.getMonth()===calMonth&&today.getFullYear()===calYear;
+    const isFuture= new Date(dateStr) > today;
+    let cls = 'cal-day';
+    if(isToday)  cls+=' today';
+    if(status)   cls+=' '+status;
+    if(isFuture) cls+=' future';
+    const dayNote = state.calNotes && state.calNotes[dateStr] ? state.calNotes[dateStr] : '';
+    const noteDot  = dayNote ? '<div class="cal-note-dot"></div>' : '';
+    const noteTip  = dayNote ? `<div class="cal-note-tip">📝 ${dayNote.replace(/</g,'&lt;')}</div>` : '';
+    html += `<div class="${cls}" data-date="${dateStr}" oncontextmenu="openCtx(event,'${dateStr}')" onclick="quickToggle('${dateStr}')">${d}${noteDot}${noteTip}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+  renderCalStats();
+  renderHeatmap();
+}
+
+function quickToggle(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d     = new Date(dateStr); d.setHours(0,0,0,0);
+  if(d>today) return;
+  const cur = state.calDays[dateStr]||'';
+  const cycle = ['','done','missed','rest','important'];
+  const next  = cycle[(cycle.indexOf(cur)+1)%cycle.length];
+  if(next) state.calDays[dateStr]=next; else delete state.calDays[dateStr];
+  saveState(); renderCalendar();
+}
+
+function openCtx(e, dateStr) {
+  e.preventDefault();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d     = new Date(dateStr); d.setHours(0,0,0,0);
+  if(d>today) return;
+  ctxDate = dateStr;
+  const m = document.getElementById('ctx-menu');
+  m.style.left = e.clientX+'px'; m.style.top = e.clientY+'px';
+  m.classList.add('open');
+}
+document.addEventListener('click', ()=>document.getElementById('ctx-menu').classList.remove('open'));
+
+function setDayStatus(status) {
+  if(!ctxDate) return;
+  if(status) state.calDays[ctxDate]=status; else delete state.calDays[ctxDate];
+  saveState(); renderCalendar();
+  document.getElementById('ctx-menu').classList.remove('open');
+}
+
+function openDayNoteModal() {
+  if(!ctxDate) return;
+  document.getElementById('ctx-menu').classList.remove('open');
+  const d = new Date(ctxDate);
+  const label = d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('day-note-date-label').textContent = label;
+  if(!state.calNotes) state.calNotes={};
+  document.getElementById('day-note-text').value = state.calNotes[ctxDate]||'';
+  openModal('modal-day-note');
+}
+
+function saveDayNote() {
+  if(!ctxDate) return;
+  if(!state.calNotes) state.calNotes={};
+  const text = document.getElementById('day-note-text').value.trim();
+  if(text) state.calNotes[ctxDate]=text;
+  else delete state.calNotes[ctxDate];
+  saveState(); closeModal('modal-day-note'); renderCalendar();
+  toast(text ? 'Note saved for this day!' : 'Note removed','success');
+}
+
+function deleteDayNote() {
+  if(!ctxDate) return;
+  document.getElementById('ctx-menu').classList.remove('open');
+  if(!state.calNotes||!state.calNotes[ctxDate]){ toast('No note on this day','info'); return; }
+  delete state.calNotes[ctxDate];
+  saveState(); renderCalendar(); toast('Note removed','info');
+}
+
+function renderCalStats() {
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // ── Current streak ──
+  let streak=0, d=new Date(today);
+  while(true){
+    const ds=d.toISOString().split('T')[0];
+    const s=state.calDays[ds];
+    if(s==='done'||s==='important'){streak++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+
+  // ── Best streak ──
+  let best=0, cur2=0;
+  const allDays=Object.entries(state.calDays).sort((a,b)=>a[0].localeCompare(b[0]));
+  allDays.forEach(([,s])=>{if(s==='done'||s==='important'){cur2++;best=Math.max(best,cur2);}else cur2=0;});
+  best=Math.max(best,streak);
+
+  // ── All-time totals ──
+  const totalDone   = Object.values(state.calDays).filter(v=>v==='done'||v==='important').length;
+  const totalMissed = Object.values(state.calDays).filter(v=>v==='missed').length;
+  const totalMarked = totalDone + totalMissed;
+  const successRate = totalMarked>0 ? Math.round(totalDone/totalMarked*100) : 0;
+
+  // ── This month ──
+  const ym    = `${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const mEntries  = Object.entries(state.calDays).filter(([k])=>k.startsWith(ym));
+  const mDone      = mEntries.filter(([,v])=>v==='done'||v==='important').length;
+  const mMissed    = mEntries.filter(([,v])=>v==='missed').length;
+  const mRest      = mEntries.filter(([,v])=>v==='rest').length;
+  const mImportant = mEntries.filter(([,v])=>v==='important').length;
+  const daysInM    = new Date(calYear,calMonth+1,0).getDate();
+  const isThisMonth = today.getMonth()===calMonth && today.getFullYear()===calYear;
+  const pastDays   = Math.min(isThisMonth ? today.getDate() : daysInM, daysInM);
+  const monthPct   = pastDays>0 ? Math.round(mDone/pastDays*100) : 0;
+  const mMarked    = mDone+mMissed;
+  const mRate      = mMarked>0 ? Math.round(mDone/mMarked*100) : 0;
+  const monthName  = new Date(calYear,calMonth).toLocaleString('default',{month:'long',year:'numeric'});
+
+  // ── Render top stat cards ──
+  document.getElementById('streak-cur').textContent          = streak;
+  document.getElementById('streak-best').textContent         = best;
+  document.getElementById('cal-done-pct').textContent        = monthPct+'%';
+  document.getElementById('cal-total-done').textContent      = totalDone;
+  document.getElementById('cal-total-done-sub').textContent  = totalDone===1 ? '1 day total' : `${totalDone} days all time`;
+  document.getElementById('cal-total-missed').textContent    = totalMissed;
+  document.getElementById('cal-total-missed-sub').textContent= totalMissed===0 ? 'Keep it up!' : `${totalMissed} days all time`;
+  document.getElementById('cal-success-rate').textContent    = totalMarked>0 ? successRate+'%' : '—';
+  document.getElementById('cal-rate-bar').style.width        = successRate+'%';
+  document.getElementById('cal-rate-done-lbl').textContent   = totalDone+' done';
+  document.getElementById('cal-rate-missed-lbl').textContent = totalMissed+' missed';
+
+  // ── Render monthly breakdown ──
+  document.getElementById('cal-month-name-label').textContent  = monthName;
+  document.getElementById('cal-month-done').textContent        = mDone;
+  document.getElementById('cal-month-missed').textContent      = mMissed;
+  document.getElementById('cal-month-rest').textContent        = mRest;
+  document.getElementById('cal-month-important').textContent   = mImportant;
+  document.getElementById('cal-month-bar').style.width         = mRate+'%';
+  document.getElementById('cal-month-pct-lbl').textContent     = mMarked>0
+    ? `${mRate}% success rate this month (${mDone} done / ${mMissed} missed)`
+    : 'No done/missed days logged yet this month';
+}
+
+function renderHeatmap() {
+  const today = new Date();
+  const hm = document.getElementById('heatmap');
+  let html = '';
+  for(let i=364;i>=0;i--){
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().split('T')[0];
+    const s  = state.calDays[ds];
+    let cls='hm-0', bg='';
+    if(s==='done')      bg='background:rgba(16,185,129,0.7)';
+    if(s==='important') bg='background:rgba(245,158,11,0.7)';
+    if(s==='rest')      bg='background:rgba(59,130,246,0.5)';
+    if(s==='missed')    bg='background:rgba(244,63,94,0.5)';
+    html += `<div class="hm-cell" ${bg?`style="${bg}"`:''}  title="${ds}: ${s||'empty'}"></div>`;
+  }
+  hm.innerHTML = html;
+}
+
+/* ─────────────────────────── NOTES ─────────────────────────── */
+function switchNotesTab(tab) {
+  document.getElementById('notes-panel').style.display  = tab==='notes'?'block':'none';
+  document.getElementById('plans-panel').style.display  = tab==='plans'?'block':'none';
+  document.getElementById('tab-notes-btn').classList.toggle('active', tab==='notes');
+  document.getElementById('tab-plans-btn').classList.toggle('active', tab==='plans');
+}
+
+function renderNotes() {
+  const q    = (document.getElementById('note-search')?.value||'').toLowerCase();
+  const prF  = document.getElementById('note-prio-filter')?.value||'all';
+  let notes  = [...state.notes];
+  if(q)       notes = notes.filter(n=>n.title.toLowerCase().includes(q)||n.content.toLowerCase().includes(q));
+  if(prF!=='all') notes = notes.filter(n=>n.priority===prF);
+  // pinned first
+  notes.sort((a,b)=>(b.pinned||0)-(a.pinned||0)||(b.createdAt||0)-(a.createdAt||0));
+  const el = document.getElementById('notes-grid');
+  if(!notes.length){ el.innerHTML='<div style="color:var(--text-d);font-size:.82rem;padding:24px;text-align:center;grid-column:1/-1;">No notes found.</div>'; return; }
+  el.innerHTML = notes.map(n=>{
+    const pCls = {High:'prio-high',Medium:'prio-medium',Low:'prio-low'}[n.priority]||'prio-medium';
+    const checks = (n.checklist||[]).map((c,ci)=>`
+      <div class="check-item ${c.done?'done':''}">
+        <input type="checkbox" ${c.done?'checked':''} onchange="toggleCheck('${n.id}',${ci},this.checked)">
+        <span>${c.text}</span>
+      </div>`).join('');
+    const d = new Date(n.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return `<div class="note-card ${n.pinned?'pinned':''}">
+      <div class="note-title">${escHtml(n.title)}</div>
+      <div class="note-body">${escHtml(n.content)}</div>
+      ${checks?`<div class="checklist">${checks}</div>`:''}
+      <div class="note-footer">
+        <span class="prio-badge ${pCls}">${n.priority}</span>
+        <span class="note-date">${d}</span>
+      </div>
+      <div class="note-actions">
+        <button class="btn btn-ghost btn-xs" onclick="openNoteModal('${n.id}')">✏ Edit</button>
+        <button class="btn btn-ghost btn-xs" onclick="togglePin('${n.id}')">${n.pinned?'📌 Unpin':'📌 Pin'}</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteNote('${n.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let _noteEditId=null;
+function openNoteModal(id) {
+  _noteEditId = id||null;
+  const n = id ? state.notes.find(x=>x.id===id) : null;
+  document.getElementById('note-modal-title').textContent = id?'Edit Note':'New Note';
+  document.getElementById('note-title').value   = n?n.title:'';
+  document.getElementById('note-content').value = n?n.content:'';
+  document.getElementById('note-prio').value    = n?n.priority:'Medium';
+  document.getElementById('note-pin').value     = n&&n.pinned?'1':'0';
+  document.getElementById('note-checklist').value= n&&n.checklist ? n.checklist.map(c=>c.text).join('\n') : '';
+  document.getElementById('note-edit-id').value = id||'';
+  openModal('modal-note');
+}
+function saveNote() {
+  const title  = document.getElementById('note-title').value.trim();
+  if(!title){ toast('Title is required','error'); return; }
+  const content   = document.getElementById('note-content').value;
+  const priority  = document.getElementById('note-prio').value;
+  const pinned    = document.getElementById('note-pin').value==='1';
+  const clRaw     = document.getElementById('note-checklist').value;
+  const checklist = clRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(text=>({text,done:false}));
+  if(_noteEditId) {
+    const n = state.notes.find(x=>x.id===_noteEditId);
+    if(n){ Object.assign(n,{title,content,priority,pinned,checklist}); }
+  } else {
+    state.notes.push({id:'n'+Date.now(),title,content,priority,pinned,checklist,createdAt:Date.now()});
+  }
+  saveState(); closeModal('modal-note'); renderNotes();
+  toast(_noteEditId?'Note updated!':'Note saved!','success');
+}
+function deleteNote(id) {
+  if(!confirm('Delete this note?')) return;
+  state.notes = state.notes.filter(n=>n.id!==id);
+  saveState(); renderNotes(); toast('Note deleted','info');
+}
+function togglePin(id) {
+  const n=state.notes.find(x=>x.id===id); if(!n) return;
+  n.pinned=!n.pinned; saveState(); renderNotes();
+}
+function toggleCheck(noteId, ci, done) {
+  const n=state.notes.find(x=>x.id===noteId); if(!n||!n.checklist[ci]) return;
+  n.checklist[ci].done=done; saveState(); renderNotes();
+}
+
+/* ─── PLANS ─── */
+function renderPlans() {
+  const plans = [...state.plans].sort((a,b)=>a.deadline>b.deadline?1:-1);
+  const el = document.getElementById('plans-list');
+  if(!plans.length){ el.innerHTML='<div style="color:var(--text-d);font-size:.82rem;padding:24px;text-align:center;">No plans yet.</div>'; return; }
+  const today = new Date().toISOString().split('T')[0];
+  const icons = {High:'🔴',Medium:'🟡',Low:'🟢'};
+  el.innerHTML = plans.map(p=>{
+    const past = p.deadline && p.deadline < today;
+    const soon = p.deadline && !past && p.deadline <= addDays(today,7);
+    const dClass = past?'past':soon?'soon':'';
+    const dLabel = p.deadline ? (past?'Overdue: ':'Due: ')+p.deadline : 'No deadline';
+    return `<div class="plan-item">
+      <div class="plan-icon">${icons[p.priority]||'📌'}</div>
+      <div class="plan-body">
+        <div class="plan-title">${escHtml(p.title)}</div>
+        ${p.desc?`<div class="text-d mt-8">${escHtml(p.desc)}</div>`:''}
+        <div class="plan-deadline ${dClass} mt-8">📅 ${dLabel}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;margin-left:8px;">
+        <button class="btn btn-ghost btn-xs" onclick="openPlanModal('${p.id}')">✏</button>
+        <button class="btn btn-danger btn-xs" onclick="deletePlan('${p.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function addDays(dateStr, n) {
+  const d=new Date(dateStr); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0];
+}
+let _planEditId=null;
+function openPlanModal(id) {
+  _planEditId=id||null;
+  const p=id?state.plans.find(x=>x.id===id):null;
+  document.getElementById('plan-title').value    = p?p.title:'';
+  document.getElementById('plan-desc').value     = p?p.desc:'';
+  document.getElementById('plan-deadline').value = p?p.deadline:'';
+  document.getElementById('plan-prio').value     = p?p.priority:'Medium';
+  document.getElementById('plan-edit-id').value  = id||'';
+  openModal('modal-plan');
+}
+function savePlan() {
+  const title=document.getElementById('plan-title').value.trim();
+  if(!title){ toast('Title required','error'); return; }
+  const desc     =document.getElementById('plan-desc').value;
+  const deadline =document.getElementById('plan-deadline').value;
+  const priority =document.getElementById('plan-prio').value;
+  if(_planEditId){
+    const p=state.plans.find(x=>x.id===_planEditId); if(p) Object.assign(p,{title,desc,deadline,priority});
+  } else {
+    state.plans.push({id:'p'+Date.now(),title,desc,deadline,priority,done:false});
+  }
+  saveState(); closeModal('modal-plan'); renderPlans(); toast('Plan saved!','success');
+}
+function deletePlan(id){
+  if(!confirm('Delete this plan?')) return;
+  state.plans=state.plans.filter(p=>p.id!==id); saveState(); renderPlans(); toast('Plan deleted','info');
+}
+
+/* ─────────────────────────── ANALYTICS ─────────────────────────── */
+function renderAnalytics() {
+  const now=new Date();
+  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const spent = state.transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(ym)).reduce((s,t)=>s+t.amount,0);
+  document.getElementById('an-saved').textContent  = '₹'+fmt(state.savBal);
+  document.getElementById('an-spent').textContent  = '₹'+fmt(spent);
+  // streak
+  let streak=0; const today=new Date(); today.setHours(0,0,0,0);
+  let dd=new Date(today);
+  while(true){ const ds=dd.toISOString().split('T')[0]; const s=state.calDays[ds]; if(s==='done'||s==='important'){streak++;dd.setDate(dd.getDate()-1);}else break; }
+  document.getElementById('an-streak').textContent = streak+' 🔥';
+  // tasks
+  let tasks=0; state.notes.forEach(n=>(n.checklist||[]).forEach(c=>{if(c.done)tasks++;}));
+  document.getElementById('an-tasks').textContent = tasks;
+  // net worth
+  const net = state.mainBal+state.savBal;
+  document.getElementById('an-main-bal').textContent = '₹'+fmt(state.mainBal);
+  document.getElementById('an-sav-bal').textContent  = '₹'+fmt(state.savBal);
+  document.getElementById('an-net').textContent      = '₹'+fmt(net);
+  const splitPct = net>0 ? Math.round(state.mainBal/net*100) : 50;
+  document.getElementById('an-split-bar').style.width = splitPct+'%';
+  // productivity score
+  let score=0;
+  if(streak>0)    score+=Math.min(40, streak*4);
+  if(tasks>0)     score+=Math.min(20, tasks*2);
+  const totalDone=Object.values(state.calDays).filter(v=>v==='done'||v==='important').length;
+  if(totalDone>0) score+=Math.min(20, totalDone);
+  if(state.savBal>0) score+=Math.min(20, Math.round(state.savBal/(state.savGoal.target||10000)*20));
+  score=Math.min(100,Math.round(score));
+  document.getElementById('score-num').textContent=score;
+  const arc=document.getElementById('score-arc');
+  const dashOffset=314-(314*score/100);
+  arc.style.strokeDashoffset=dashOffset;
+  document.getElementById('score-breakdown').innerHTML=`
+    🔥 Streak: ${Math.min(40,streak*4)} pts<br>
+    ✅ Tasks: ${Math.min(20,tasks*2)} pts<br>
+    📅 Days done: ${Math.min(20,totalDone)} pts<br>
+    💰 Savings: ${Math.min(20,Math.round(state.savBal/(state.savGoal.target||10000)*20))} pts
+  `;
+  // 6-month trend
+  renderTrendChart();
+}
+
+function renderTrendChart() {
+  const now=new Date(); const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({label:d.toLocaleString('default',{month:'short'}),ym:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`});
+  }
+  const income  =months.map(m=>state.transactions.filter(t=>(t.type==='income'||t.type==='transfer_in')&&t.date&&t.date.startsWith(m.ym)).reduce((s,t)=>s+t.amount,0));
+  const expense =months.map(m=>state.transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(m.ym)).reduce((s,t)=>s+t.amount,0));
+  const max=Math.max(...income,...expense,1);
+  const chart =document.getElementById('an-trend-chart');
+  const labels=document.getElementById('an-trend-labels');
+  chart.innerHTML=months.map((m,i)=>`
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+      <div style="flex:1;display:flex;align-items:flex-end;gap:3px;width:100%;">
+        <div style="flex:1;height:${Math.max(4,Math.round(income[i]/max*96))}px;background:rgba(16,185,129,0.55);border-radius:4px 4px 0 0;"></div>
+        <div style="flex:1;height:${Math.max(4,Math.round(expense[i]/max*96))}px;background:rgba(244,63,94,0.55);border-radius:4px 4px 0 0;"></div>
+      </div>
+    </div>`).join('');
+  labels.innerHTML=months.map(m=>`<div style="flex:1;text-align:center;font-size:.64rem;color:var(--text-d);">${m.label}</div>`).join('');
+}
+
+/* ─────────────────────────── SETTINGS ─────────────────────────── */
+function openSettings() { openModal('modal-settings'); }
+function changePin() { toast('PIN removed — login is handled by Firebase Auth now','info'); }
+function clearAllData() {
+  if(!currentUser || !database) { toast('Login first','error'); return; }
+  state = getEmptyState();
+  saveState();
+  initApp();
+  toast('Your dashboard data was cleared','success');
+}
+
+/* ─────────────────────────── BACKUP ─────────────────────────── */
+function exportBackup() {
+  const data=JSON.stringify(state,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download=`edcreator-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Backup exported!','success');
+}
+function importBackup(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      Object.assign(state,data); saveState();
+      toast('Backup imported!','success');
+      initApp();
+    }catch{ toast('Invalid backup file','error'); }
+    e.target.value='';
+  };
+  r.readAsText(file);
+}
+
+/* ─────────────────────────── MODAL HELPERS ─────────────────────────── */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+
+/* ─────────────────────────── TOAST ─────────────────────────── */
+function toast(msg, type='info') {
+  const icons={success:'✅',error:'❌',info:'ℹ️'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<span>${icons[type]}</span> ${msg}`;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+/* ─────────────────────────── BOOTSTRAP ─────────────────────────── */
+
+
+/* ─────────────────────────── SOCIAL MEDIA HUB ─────────────────────────── */
+
+function fmtNum(n) {
+  if(n===null||n===undefined||n==='') return '—';
+  n = Number(n);
+  if(n>=1000000) return (n/1000000).toFixed(1)+'M';
+  if(n>=1000)    return (n/1000).toFixed(1)+'K';
+  return n.toLocaleString();
+}
+
+function smDelta(cur, prev, suffix='') {
+  if(prev===null||prev===undefined||cur===null||cur===undefined) return '';
+  const diff = cur - prev;
+  if(diff===0) return `<span class="sm-delta-flat">→ No change</span>`;
+  const sign = diff>0?'+':'';
+  const cls  = diff>0?'sm-delta-up':'sm-delta-down';
+  return `<span class="${cls}">${sign}${fmtNum(Math.abs(diff))} vs last log</span>`;
+}
+
+function renderSocial() {
+  const logs = [...(state.socialLogs||[])].sort((a,b)=>a.date>b.date?1:-1);
+  const latest = logs[logs.length-1]||null;
+  const prev   = logs[logs.length-2]||null;
+
+  // Profile header
+  document.getElementById('sm-ig-followers-latest').textContent = latest ? fmtNum(latest.igFollowers) : '—';
+  document.getElementById('sm-tg-members-latest').textContent   = latest ? fmtNum(latest.tgMembers)   : '—';
+  document.getElementById('sm-signal-sales-latest').textContent = latest ? fmtNum(latest.signalSales) : '—';
+
+  // KPI cards
+  document.getElementById('sm-kpi-followers').textContent = latest ? fmtNum(latest.igFollowers) : '—';
+  document.getElementById('sm-kpi-reels').textContent     = latest ? fmtNum(latest.igReelViews) : '—';
+  document.getElementById('sm-kpi-tg').textContent        = latest ? fmtNum(latest.tgMembers)   : '—';
+  document.getElementById('sm-kpi-sales').textContent     = latest ? fmtNum(latest.signalSales) : '—';
+  document.getElementById('sm-kpi-followers-delta').innerHTML = latest && prev ? smDelta(latest.igFollowers, prev.igFollowers) : '<span class="sm-delta-flat">Log more entries to see growth</span>';
+  document.getElementById('sm-kpi-reels-delta').innerHTML    = latest && prev ? smDelta(latest.igReelViews,  prev.igReelViews)  : '';
+  document.getElementById('sm-kpi-tg-delta').innerHTML       = latest && prev ? smDelta(latest.tgMembers,    prev.tgMembers)    : '';
+  document.getElementById('sm-kpi-sales-delta').innerHTML    = latest && prev ? smDelta(latest.signalSales,  prev.signalSales)  : '';
+
+  // Extra IG stats
+  document.getElementById('sm-ig-posts-latest').textContent = latest ? (latest.igPosts||'—') : '—';
+  const avgReels = logs.length ? Math.round(logs.reduce((s,l)=>s+(Number(l.igReelViews)||0),0)/logs.length) : null;
+  document.getElementById('sm-ig-reel-avg').textContent = avgReels!==null ? fmtNum(avgReels) : '—';
+
+  // Charts
+  const recent = logs.slice(-10);
+  smRenderChart('sm-chart-followers', 'sm-chart-followers-labels', recent,
+    l=>Number(l.igFollowers)||0, '#e1306c', 'rgba(225,48,108,0.4)');
+  smRenderChart('sm-chart-tg', 'sm-chart-tg-labels', recent,
+    l=>Number(l.tgMembers)||0, '#06b6d4', 'rgba(6,182,212,0.4)');
+  smRenderChart('sm-chart-sales', 'sm-chart-sales-labels', recent,
+    l=>Number(l.signalSales)||0, '#10b981', 'rgba(16,185,129,0.4)');
+
+  // Milestones
+  renderMilestones(logs);
+
+  // Log table
+  renderSocialTable(logs);
+
+  // Targets
+  renderSocialTargets(logs);
+
+  // IG Content Performance
+  renderIGPerformance(logs);
+}
+
+function smRenderChart(chartId, labelsId, logs, valFn, colorTop, colorBot) {
+  const vals   = logs.map(valFn);
+  const maxVal = Math.max(...vals, 1);
+  const chartEl  = document.getElementById(chartId);
+  const labelsEl = document.getElementById(labelsId);
+  if(!chartEl) return;
+  if(!logs.length) {
+    chartEl.innerHTML  = '<div style="color:var(--text-d);font-size:.75rem;margin:auto;">No data yet</div>';
+    labelsEl.innerHTML = '';
+    return;
+  }
+  chartEl.innerHTML = vals.map((v,i)=>{
+    const h   = Math.max(4, Math.round(v/maxVal*76));
+    const tip = fmtNum(v);
+    return `<div class="sm-bar" data-tip="${tip}" style="height:${h}px;background:linear-gradient(180deg,${colorTop},${colorBot});"></div>`;
+  }).join('');
+  labelsEl.innerHTML = logs.map(l=>{
+    const d = l.date ? l.date.slice(5) : '';
+    return `<div class="sm-bar-label">${d}</div>`;
+  }).join('');
+}
+
+function renderMilestones(logs) {
+  const el = document.getElementById('sm-milestones');
+  if(!logs.length) { el.innerHTML='<div style="color:var(--text-d);font-size:.78rem;padding:8px;">Log your stats to see milestones here.</div>'; return; }
+  const maxFollowers  = Math.max(...logs.map(l=>Number(l.igFollowers)||0));
+  const maxTg         = Math.max(...logs.map(l=>Number(l.tgMembers)||0));
+  const totalSales    = logs.reduce((s,l)=>s+(Number(l.signalSales)||0),0);
+  const maxReels      = Math.max(...logs.map(l=>Number(l.igReelViews)||0));
+  const items = [
+    {icon:'👑', label:'Peak IG Followers', val:fmtNum(maxFollowers), color:'#e1306c'},
+    {icon:'🚀', label:'Peak TG Members',   val:fmtNum(maxTg),         color:'#06b6d4'},
+    {icon:'💰', label:'Total Signal Sales', val:totalSales,            color:'#10b981'},
+    {icon:'🎬', label:'Peak Reel Views',   val:fmtNum(maxReels),      color:'#f59e0b'},
+  ];
+  el.innerHTML = items.map(it=>`
+    <div class="milestone-item">
+      <div class="milestone-icon">${it.icon}</div>
+      <div class="milestone-label">${it.label}</div>
+      <div class="milestone-val" style="color:${it.color};">${it.val}</div>
+    </div>`).join('');
+}
+
+function renderIGPerformance(logs) {
+  const now    = new Date();
+  const ym     = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const mName  = now.toLocaleString('default',{month:'long',year:'numeric'});
+  const mLogs  = logs.filter(l=>l.date&&l.date.startsWith(ym));
+  const latest = mLogs[mLogs.length-1]||null;
+
+  // Reel logs this month
+  const reels     = [...(state.reelLogs||[])].filter(r=>r.date&&r.date.startsWith(ym))
+                    .sort((a,b)=>a.date>b.date?1:-1);
+  const reelCount = reels.length;
+  const totalViews= reels.reduce((s,r)=>s+(Number(r.views)||0),0);
+  const bestReel  = reels.length ? Math.max(...reels.map(r=>Number(r.views)||0)) : 0;
+  const totalFollGained = reels.reduce((s,r)=>s+(Number(r.followersGained)||0),0);
+
+  // Month label
+  document.getElementById('ig-perf-month-label').textContent = mName;
+
+  // Use reel logs if available, else fall back to manual stats log
+  const videos  = reelCount || (latest ? Number(latest.igVideosMonth)||0 : 0);
+  const gained  = totalFollGained || (latest ? Number(latest.igGainedMonth)||0 : 0);
+  const bReel   = bestReel || (latest ? Number(latest.igBestReel)||0 : 0);
+  const perVid  = videos>0 ? Math.round(gained/videos) : 0;
+
+  // Success rate benchmark: 30 followers/video = 100%
+  const BENCH   = 30;
+  const rawRate = videos>0 ? Math.min(100, Math.round((gained/videos)/BENCH*100)) : 0;
+
+  // Update KPI cards
+  document.getElementById('ig-perf-videos').textContent     = videos||'—';
+  document.getElementById('ig-perf-gained').textContent     = gained>0 ? '+'+gained : '—';
+  document.getElementById('ig-perf-best-reel').textContent  = bReel>0 ? fmtNum(bReel) : '—';
+  document.getElementById('ig-perf-per-video').textContent  = perVid>0 ? '+'+perVid : '—';
+  document.getElementById('ig-perf-total-views').textContent= totalViews>0 ? fmtNum(totalViews) : (latest&&latest.igReelViews ? fmtNum(latest.igReelViews) : '—');
+
+  // Success rate bar
+  document.getElementById('ig-perf-rate-pct').textContent  = videos>0 ? rawRate+'%' : '—';
+  document.getElementById('ig-perf-rate-bar').style.width  = rawRate+'%';
+  let rateLabel = '';
+  if(videos>0){
+    if(rawRate>=80)       rateLabel='🔥 Excellent! Your content is converting very well.';
+    else if(rawRate>=50)  rateLabel='👍 Good performance. Keep posting consistently.';
+    else if(rawRate>=25)  rateLabel='📈 Getting there. Try stronger hooks and clear CTAs.';
+    else                  rateLabel='⚠️ Low conversion. Experiment with content style and post timing.';
+  }
+  document.getElementById('ig-perf-rate-label').textContent = rateLabel;
+
+  // Reel chart (individual reel views bars)
+  const chartEl  = document.getElementById('ig-reel-chart');
+  const labelsEl = document.getElementById('ig-reel-chart-labels');
+  if(reels.length) {
+    const maxV = Math.max(...reels.map(r=>Number(r.views)||0),1);
+    chartEl.innerHTML = reels.slice(-12).map(r=>{
+      const v = Number(r.views)||0;
+      const h = Math.max(4, Math.round(v/maxV*66));
+      const tip = `${r.caption ? r.caption.slice(0,20)+'…' : r.date}: ${fmtNum(v)} views`;
+      return `<div class="sm-bar" data-tip="${tip}" style="height:${h}px;background:linear-gradient(180deg,#e1306c,rgba(225,48,108,0.4));flex:1;border-radius:4px 4px 0 0;"></div>`;
+    }).join('');
+    labelsEl.innerHTML = reels.slice(-12).map(r=>`<div class="sm-bar-label" style="flex:1;">${r.date?r.date.slice(5):''}</div>`).join('');
+  } else {
+    chartEl.innerHTML  = '<div style="color:var(--text-d);font-size:.72rem;margin:auto;">Log reels to see chart</div>';
+    labelsEl.innerHTML = '';
+  }
+
+  // Analysis lines
+  const lines = [];
+  if(videos>0 && gained>0){
+    lines.push(`✅ <b>${videos} video${videos>1?'s':''}</b> uploaded this month → <b>+${gained} followers</b> gained (avg <b>+${perVid}/video</b>).`);
+  } else if(videos>0){
+    lines.push(`📹 <b>${videos} video${videos>1?'s':''}</b> uploaded. Add followers gained to see conversion.`);
+  }
+  if(bReel>0){
+    lines.push(`🎬 Best reel: <b>${fmtNum(bReel)} views</b>${bReel>=50000?' 🚀 Viral!':bReel>=10000?' — strong reach!':bReel>=3000?' — decent reach.':' — keep experimenting with hooks.'}`);
+  }
+  if(totalViews>0 && reelCount>0){
+    const avgV = Math.round(totalViews/reelCount);
+    lines.push(`📊 Average views per reel: <b>${fmtNum(avgV)}</b>.${avgV>=10000?' Great average!':avgV>=3000?' Solid.':' Aim to improve hooks in first 2 seconds.'}`);
+  }
+  if(videos>0 && gained>0){
+    if(perVid>=50)      lines.push(`💪 <b>+${perVid} followers/video</b> — excellent conversion! Your trading content is clearly resonating.`);
+    else if(perVid>=20) lines.push(`📊 <b>+${perVid} followers/video</b> — solid. Add a "Follow for daily signals" CTA at the end of each reel.`);
+    else if(perVid>=5)  lines.push(`💡 <b>+${perVid} followers/video</b> — try adding a clear CTA and using trending audio related to finance.`);
+    else                lines.push(`⚡ <b>+${perVid} followers/video</b> — post at peak hours (6–9am, 7–10pm) and use strong pattern-interrupt hooks.`);
+  }
+  const daysSoFar = now.getDate();
+  const postRate  = videos>0 ? (videos/daysSoFar*7).toFixed(1) : 0;
+  if(videos>0){
+    if(postRate>=5)       lines.push(`📅 Pace: <b>${postRate} reels/week</b> — very active! Consistency is your biggest growth lever.`);
+    else if(postRate>=3)  lines.push(`📅 Pace: <b>${postRate} reels/week</b> — good. Aim for 5–7/week to maximize the algorithm.`);
+    else                  lines.push(`📅 Pace: <b>${postRate} reels/week</b> — try to post more. Frequency matters on Instagram in 2026.`);
+  }
+  const g = state.socialGoals||{};
+  if(g.followerTarget && gained>0 && latest){
+    const total = Number(latest.igFollowers)||0;
+    const rem   = Math.max(0, Number(g.followerTarget)-total);
+    if(rem>0) lines.push(`🎯 <b>${fmtNum(rem)} more followers</b> to hit your target of ${fmtNum(g.followerTarget)}. At +${gained}/month that's ~${Math.ceil(rem/gained)} months.`);
+    else      lines.push(`🏆 <b>Follower target reached!</b> Time to set a higher goal.`);
+  }
+  if(!lines.length) lines.push('Log reels and update your stats to unlock full content analysis.');
+  document.getElementById('ig-perf-analysis-text').innerHTML = lines.map(l=>`<div style="margin-bottom:6px;">${l}</div>`).join('');
+
+  // Render reel log table
+  renderReelTable(reels);
+}
+
+function renderReelTable(reels) {
+  const tbody = document.getElementById('reel-log-tbody');
+  if(!tbody) return;
+  const all = [...(state.reelLogs||[])].sort((a,b)=>b.date>a.date?1:-1);
+  if(!all.length){
+    tbody.innerHTML='<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-d);font-size:.8rem;">No reels logged yet. Click &quot;+ Add Reel&quot; to track your content.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = all.map(r=>{
+    const views = Number(r.views)||0;
+    const rating = views>=50000?'🔥 Viral':views>=10000?'🚀 Great':views>=3000?'👍 Good':views>=500?'📈 Okay':'🌱 Low';
+    const rColor = views>=10000?'var(--green)':views>=3000?'var(--yellow)':'var(--text-d)';
+    return `<tr class="log-row">
+      <td style="color:var(--text-m);white-space:nowrap;">${r.date||''}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.caption||''}">${r.caption||'—'}</td>
+      <td style="text-align:right;font-weight:700;color:var(--yellow);">${fmtNum(views)}</td>
+      <td style="text-align:right;">${fmtNum(r.likes)||'—'}</td>
+      <td style="text-align:right;">${fmtNum(r.comments)||'—'}</td>
+      <td style="text-align:right;color:var(--accent2);font-weight:600;">${r.followersGained>0?'+'+r.followersGained:'—'}</td>
+      <td style="text-align:center;font-size:.75rem;font-weight:700;color:${rColor};">${rating}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-ghost btn-xs" onclick="openReelModal('${r.id}')">✏</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteReel('${r.id}')" style="margin-left:4px;">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSocialTargets(logs) {
+  const g = state.socialGoals || { followerTarget:0, monthSalesTarget:0 };
+  const latest = logs[logs.length-1]||null;
+
+  // ── Follower target ──
+  const curFol    = latest ? (Number(latest.igFollowers)||0) : 0;
+  const folTarget = Number(g.followerTarget)||0;
+  const folPct    = folTarget>0 ? Math.min(100, Math.round(curFol/folTarget*100)) : 0;
+  const folNeed   = folTarget>0 ? Math.max(0, folTarget-curFol) : 0;
+
+  document.getElementById('sm-ftarget-cur').textContent  = fmtNum(curFol)||'—';
+  document.getElementById('sm-ftarget-goal').textContent = folTarget>0 ? fmtNum(folTarget) : 'Not set';
+  document.getElementById('sm-ftarget-pct').textContent  = folTarget>0 ? folPct+'%' : '—';
+  document.getElementById('sm-ftarget-bar').style.width  = folPct+'%';
+  document.getElementById('sm-ftarget-need').textContent = folTarget>0 ? (folNeed>0 ? '+'+fmtNum(folNeed) : '✅ Reached!') : '—';
+  document.getElementById('sm-ftarget-label').textContent = folTarget>0
+    ? (folNeed>0 ? `${folPct}% to ${fmtNum(folTarget)} followers` : '🎉 Target reached!')
+    : 'Tap ✏ to set a follower target';
+
+  // ── Monthly sales target ──
+  const now   = new Date();
+  const ym    = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  // Sum all signal sales from logs this month
+  const monthLogs  = logs.filter(l => l.date && l.date.startsWith(ym));
+  // Use the latest log's signalSales as cumulative (user enters total, not daily)
+  // So we take the max value logged this month as the current month total
+  const curSales   = monthLogs.length
+    ? Math.max(...monthLogs.map(l=>Number(l.signalSales)||0))
+    : 0;
+  const salTarget  = Number(g.monthSalesTarget)||0;
+  const salPct     = salTarget>0 ? Math.min(100, Math.round(curSales/salTarget*100)) : 0;
+  const salNeed    = salTarget>0 ? Math.max(0, salTarget-curSales) : 0;
+  const monthName  = now.toLocaleString('default',{month:'long'});
+
+  document.getElementById('sm-starget-cur').textContent  = curSales||'—';
+  document.getElementById('sm-starget-goal').textContent = salTarget>0 ? salTarget : 'Not set';
+  document.getElementById('sm-starget-pct').textContent  = salTarget>0 ? salPct+'%' : '—';
+  document.getElementById('sm-starget-bar').style.width  = salPct+'%';
+  document.getElementById('sm-starget-need').textContent = salTarget>0 ? (salNeed>0 ? salNeed+' more' : '✅ Done!') : '—';
+  document.getElementById('sm-starget-label').textContent = salTarget>0
+    ? (salNeed>0 ? `${salPct}% — ${salNeed} more needed in ${monthName}` : `🎉 ${monthName} target hit!`)
+    : 'Tap ✏ to set a monthly sales target';
+}
+
+function openSocialGoalModal() {
+  document.getElementById('ctx-menu').classList.remove('open');
+  const g = state.socialGoals || { followerTarget:0, monthSalesTarget:0 };
+  document.getElementById('sg-follower-target').value = g.followerTarget||'';
+  document.getElementById('sg-sales-target').value    = g.monthSalesTarget||'';
+  openModal('modal-social-goals');
+}
+
+function saveSocialGoals() {
+  const followerTarget   = Number(document.getElementById('sg-follower-target').value)||0;
+  const monthSalesTarget = Number(document.getElementById('sg-sales-target').value)||0;
+  state.socialGoals = { followerTarget, monthSalesTarget };
+  saveState(); closeModal('modal-social-goals'); renderSocial();
+  toast('Targets saved!', 'success');
+}
+
+function renderSocialTable(logs) {
+  const tbody = document.getElementById('sm-log-tbody');
+  if(!logs.length) {
+    tbody.innerHTML='<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-d);">No logs yet. Click &quot;+ Log Today\'s Stats&quot; to start tracking.</td></tr>';
+    return;
+  }
+  const sorted = [...logs].reverse();
+  tbody.innerHTML = sorted.map((l,i)=>{
+    const prev = sorted[i+1]||null;
+    const dFol = prev ? deltaCell(l.igFollowers, prev.igFollowers) : '';
+    const dTg  = prev ? deltaCell(l.tgMembers,   prev.tgMembers)   : '';
+    const dSal = prev ? deltaCell(l.signalSales,  prev.signalSales) : '';
+    return `<tr class="log-row">
+      <td style="color:var(--text-m);white-space:nowrap;">${l.date||''}</td>
+      <td style="text-align:right;font-weight:600;">${fmtNum(l.igFollowers)}${dFol}</td>
+      <td style="text-align:right;">${l.igPosts||'—'}</td>
+      <td style="text-align:right;">${fmtNum(l.igReelViews)}</td>
+      <td style="text-align:right;font-weight:600;">${fmtNum(l.tgMembers)}${dTg}</td>
+      <td style="text-align:right;font-weight:600;color:var(--green);">${l.signalSales||0}${dSal}</td>
+      <td style="color:var(--text-m);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(l.note||'')}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-ghost btn-xs" onclick="openSocialLogModal('${l.id}')">✏</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteSocialLog('${l.id}')" style="margin-left:4px;">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function deltaCell(cur, prev) {
+  if(prev===null||prev===undefined) return '';
+  const diff = (Number(cur)||0) - (Number(prev)||0);
+  if(diff===0) return '';
+  const sign = diff>0?'+':'';
+  const cls  = diff>0?'sm-delta-up':'sm-delta-down';
+  return `<span class="delta-cell ${cls}">${sign}${fmtNum(Math.abs(diff))}</span>`;
+}
+
+/* ── Social Log Modal ── */
+let _slEditId = null;
+function openSocialLogModal(id) {
+  _slEditId = id||null;
+  const l = id ? (state.socialLogs||[]).find(x=>x.id===id) : null;
+  document.getElementById('social-log-modal-title').textContent = id ? '✏️ Edit Stats Log' : '📊 Log Today\'s Stats';
+  document.getElementById('sl-date').value              = l ? l.date    : new Date().toISOString().split('T')[0];
+  document.getElementById('sl-ig-followers').value      = l ? (l.igFollowers||'')    : '';
+  document.getElementById('sl-ig-posts').value          = l ? (l.igPosts||'')        : '';
+  document.getElementById('sl-ig-reel-views').value     = l ? (l.igReelViews||'')    : '';
+  document.getElementById('sl-ig-videos-month').value   = l ? (l.igVideosMonth||'')  : '';
+  document.getElementById('sl-ig-gained-month').value   = l ? (l.igGainedMonth||'')  : '';
+  document.getElementById('sl-ig-best-reel').value      = l ? (l.igBestReel||'')     : '';
+  document.getElementById('sl-tg-members').value        = l ? (l.tgMembers||'')      : '';
+  document.getElementById('sl-signal-sales').value      = l ? (l.signalSales||'')    : '';
+  document.getElementById('sl-note').value              = l ? (l.note||'')           : '';
+  document.getElementById('sl-edit-id').value        = id||'';
+  openModal('modal-social-log');
+}
+
+function saveSocialLog() {
+  const date = document.getElementById('sl-date').value;
+  if(!date){ toast('Date is required','error'); return; }
+  if(!state.socialLogs) state.socialLogs=[];
+  const entry = {
+    id:             _slEditId || 'sl'+Date.now(),
+    date,
+    igFollowers:    Number(document.getElementById('sl-ig-followers').value)||0,
+    igPosts:        Number(document.getElementById('sl-ig-posts').value)||0,
+    igReelViews:    Number(document.getElementById('sl-ig-reel-views').value)||0,
+    igVideosMonth:  Number(document.getElementById('sl-ig-videos-month').value)||0,
+    igGainedMonth:  Number(document.getElementById('sl-ig-gained-month').value)||0,
+    igBestReel:     Number(document.getElementById('sl-ig-best-reel').value)||0,
+    tgMembers:      Number(document.getElementById('sl-tg-members').value)||0,
+    signalSales:    Number(document.getElementById('sl-signal-sales').value)||0,
+    note:           document.getElementById('sl-note').value.trim(),
+  };
+  if(_slEditId) {
+    const idx = state.socialLogs.findIndex(x=>x.id===_slEditId);
+    if(idx>-1) state.socialLogs[idx]=entry;
+  } else {
+    state.socialLogs.push(entry);
+  }
+  saveState(); closeModal('modal-social-log'); renderSocial();
+  toast(_slEditId ? 'Log updated!' : 'Stats logged!', 'success');
+}
+
+function deleteSocialLog(id) {
+  if(!confirm('Delete this log entry?')) return;
+  state.socialLogs = (state.socialLogs||[]).filter(l=>l.id!==id);
+  saveState(); renderSocial(); toast('Log deleted','info');
+}
+
+/* ── Reel Log Modal ── */
+let _rlEditId = null;
+function openReelModal(id) {
+  _rlEditId = id||null;
+  const r = id ? (state.reelLogs||[]).find(x=>x.id===id) : null;
+  document.getElementById('reel-modal-title').textContent = id ? '✏️ Edit Reel' : '🎬 Log a Reel';
+  document.getElementById('rl-date').value        = r ? r.date      : new Date().toISOString().split('T')[0];
+  document.getElementById('rl-caption').value     = r ? (r.caption||'')         : '';
+  document.getElementById('rl-views').value       = r ? (r.views||'')           : '';
+  document.getElementById('rl-likes').value       = r ? (r.likes||'')           : '';
+  document.getElementById('rl-comments').value    = r ? (r.comments||'')        : '';
+  document.getElementById('rl-followers').value   = r ? (r.followersGained||'') : '';
+  document.getElementById('rl-edit-id').value     = id||'';
+  openModal('modal-reel');
+}
+
+function saveReel() {
+  const date = document.getElementById('rl-date').value;
+  if(!date){ toast('Date is required','error'); return; }
+  if(!state.reelLogs) state.reelLogs=[];
+  const entry = {
+    id:               _rlEditId||'rl'+Date.now(),
+    date,
+    caption:          document.getElementById('rl-caption').value.trim(),
+    views:            Number(document.getElementById('rl-views').value)||0,
+    likes:            Number(document.getElementById('rl-likes').value)||0,
+    comments:         Number(document.getElementById('rl-comments').value)||0,
+    followersGained:  Number(document.getElementById('rl-followers').value)||0,
+  };
+  if(_rlEditId){
+    const idx=state.reelLogs.findIndex(x=>x.id===_rlEditId);
+    if(idx>-1) state.reelLogs[idx]=entry;
+  } else {
+    state.reelLogs.push(entry);
+  }
+  saveState(); closeModal('modal-reel'); renderSocial();
+  toast(_rlEditId?'Reel updated!':'Reel logged! 🎬','success');
+}
+
+function deleteReel(id){
+  if(!confirm('Delete this reel log?')) return;
+  state.reelLogs=(state.reelLogs||[]).filter(r=>r.id!==id);
+  saveState(); renderSocial(); toast('Reel deleted','info');
+}
+
+
+/* ─────────────────────────── HABIT TRACKER ─────────────────────────── */
+let habitViewDate = new Date();
+
+function habitDateNav(dir) {
+  habitViewDate.setDate(habitViewDate.getDate() + dir);
+  renderHabits();
+}
+
+function renderHabits() {
+  const today = habitViewDate.toISOString().split('T')[0];
+  document.getElementById('habit-date-label').textContent = habitViewDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  
+  const habits = state.habits||[];
+  const dayLog = (state.habitLogs||{})[today]||{};
+  
+  // Render day checklist
+  const dayEl = document.getElementById('habit-day-list');
+  if(!habits.length) {
+    dayEl.innerHTML = '<div style="color:var(--text-d);font-size:.82rem;padding:16px 0;">No habits added yet. Click "+ Add Habit" to create your first one.</div>';
+  } else {
+    dayEl.innerHTML = habits.map(h => {
+      const done = dayLog[h.id] || false;
+      const borderColor = `${h.color||'#6c63ff'}44`;
+      return `<div class="habit-row" style="border-color:${borderColor};">
+        <div class="habit-check" style="border-color:${h.color||'#6c63ff'};background:${done?h.color||'#6c63ff':'transparent'};color:${done?'#fff':h.color||'#6c63ff'};" onclick="toggleHabit('${h.id}','${today}')">
+          ${done ? '✓' : ''}
+        </div>
+        <div class="habit-emoji">${h.emoji||'📌'}</div>
+        <div class="habit-name">${h.name}</div>
+        <div class="habit-streak" id="habit-streak-${h.id}"></div>
+      </div>`;
+    }).join('');
+    
+    // Update streaks for each habit
+    habits.forEach(h => {
+      let streak = 0, d = new Date(habitViewDate);
+      const logs = state.habitLogs||{};
+      while(true) {
+        const ds = d.toISOString().split('T')[0];
+        if(logs[ds] && logs[ds][h.id]) { streak++; d.setDate(d.getDate()-1); }
+        else break;
+      }
+      const el = document.getElementById('habit-streak-'+h.id);
+      if(el) el.textContent = streak>0 ? `🔥 ${streak}` : '—';
+    });
+  }
+  
+  // Render habit stats grid
+  const statsEl = document.getElementById('habit-stats-grid');
+  if(!habits.length) {
+    statsEl.innerHTML = '';
+  } else {
+    const logs = state.habitLogs||{};
+    const allDates = Object.keys(logs).sort();
+    statsEl.innerHTML = habits.map(h => {
+      const completed = allDates.filter(d => logs[d][h.id]).length;
+      const total = allDates.length || 1;
+      const pct = Math.round(completed/total*100);
+      let streak = 0, d = new Date();
+      while(true) {
+        const ds = d.toISOString().split('T')[0];
+        if(logs[ds] && logs[ds][h.id]) { streak++; d.setDate(d.getDate()-1); }
+        else break;
+      }
+      return `<div class="habit-stat-card" style="border-color:${h.color||'#6c63ff'}44;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:.72rem;color:var(--text-m);">${h.emoji||'📌'} ${h.name}</div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-primary btn-xs" onclick="openHabitDefModal('${h.id}')">Edit</button>
+          </div>
+        </div>
+        <div style="font-size:2rem;font-weight:900;color:${h.color||'#6c63ff'};letter-spacing:-1px;margin-bottom:4px;">${pct}%</div>
+        <div class="progress-wrap" style="height:6px;margin-bottom:6px;">
+          <div style="height:100%;border-radius:99px;background:${h.color||'#6c63ff'};width:${pct}%;transition:width .5s;"></div>
+        </div>
+        <div style="font-size:.7rem;color:var(--text-d);">${completed}/${total} days · ${streak>0?'🔥'+streak:'-'}</div>
+      </div>`;
+    }).join('');
+  }
+  
+  // Render 30-day heatmap
+  const hmEl = document.getElementById('habit-heatmap');
+  if(!habits.length) {
+    hmEl.innerHTML = '<div style="color:var(--text-d);font-size:.8rem;padding:12px 0;">Add habits to see heatmap.</div>';
+  } else {
+    hmEl.innerHTML = habits.map(h => {
+      const logs = state.habitLogs||{};
+      let html = `<div class="habit-hm-row"><div class="habit-hm-label">${h.emoji||'📌'} ${h.name.slice(0,11)}</div><div class="habit-hm-cells">`;
+      for(let i=29;i>=0;i--){
+        const d = new Date();
+        d.setDate(d.getDate()-i);
+        const ds = d.toISOString().split('T')[0];
+        const done = logs[ds] && logs[ds][h.id];
+        const bg = done ? h.color||'#6c63ff' : 'rgba(255,255,255,0.06)';
+        html += `<div class="hm-h" style="background:${bg};opacity:${done?1:0.4};" title="${ds}"></div>`;
+      }
+      html += `</div></div>`;
+      return html;
+    }).join('');
+  }
+}
+
+function toggleHabit(habitId, dateStr) {
+  if(!state.habitLogs) state.habitLogs = {};
+  if(!state.habitLogs[dateStr]) state.habitLogs[dateStr] = {};
+  state.habitLogs[dateStr][habitId] = !state.habitLogs[dateStr][habitId];
+  saveState();
+  renderHabits();
+}
+
+let _hdEditId = null;
+function openHabitDefModal(id) {
+  _hdEditId = id||null;
+  const h = id ? (state.habits||[]).find(x=>x.id===id) : null;
+  document.getElementById('habit-def-title').textContent = id ? '✏️ Edit Habit' : '+ Add Habit';
+  document.getElementById('hd-name').value = h ? h.name : '';
+  document.getElementById('hd-emoji').value = h ? h.emoji : '📌';
+  document.getElementById('hd-color').value = h ? h.color : '#6c63ff';
+  document.getElementById('hd-edit-id').value = id||'';
+  document.getElementById('hd-delete-btn').style.display = id ? 'block' : 'none';
+  openModal('modal-habit-def');
+}
+
+function saveHabitDef() {
+  const name = document.getElementById('hd-name').value.trim();
+  if(!name) { toast('Name required','error'); return; }
+  if(!state.habits) state.habits = [];
+  const habit = {
+    id: _hdEditId||'h'+Date.now(),
+    name,
+    emoji: document.getElementById('hd-emoji').value.trim()||'📌',
+    color: document.getElementById('hd-color').value||'#6c63ff'
+  };
+  if(_hdEditId) {
+    const idx = state.habits.findIndex(x=>x.id===_hdEditId);
+    if(idx>-1) state.habits[idx] = habit;
+  } else {
+    state.habits.push(habit);
+  }
+  saveState(); closeModal('modal-habit-def'); renderHabits();
+  toast(_hdEditId?'Habit updated!':'Habit added!','success');
+}
+
+function deleteHabit(id) {
+  if(!confirm('Delete this habit and all its logs?')) return;
+  state.habits = (state.habits||[]).filter(h=>h.id!==id);
+  // Also clean up habit logs for this habit
+  Object.keys(state.habitLogs||{}).forEach(d => {
+    if(state.habitLogs[d][id]) delete state.habitLogs[d][id];
+  });
+  saveState(); renderHabits(); toast('Habit deleted','success');
+}
+
+/* ─────────────────────────── CONTENT IDEAS ─────────────────────────── */
+function renderIdeas() {
+  const q = (document.getElementById('idea-search')?.value||'').toLowerCase();
+  const f = document.getElementById('idea-status-filter')?.value||'all';
+  let ideas = [...(state.ideas||[])];
+  if(q) ideas = ideas.filter(i => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
+  if(f!=='all') ideas = ideas.filter(i => i.status===f);
+  ideas.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  
+  // Status counts
+  const all = state.ideas||[];
+  const counts = {
+    Idea: all.filter(i=>i.status==='Idea').length,
+    Scripted: all.filter(i=>i.status==='Scripted').length,
+    Recorded: all.filter(i=>i.status==='Recorded').length,
+    Posted: all.filter(i=>i.status==='Posted').length,
+  };
+  document.getElementById('idea-count-idea').textContent = counts.Idea;
+  document.getElementById('idea-count-scripted').textContent = counts.Scripted;
+  document.getElementById('idea-count-recorded').textContent = counts.Recorded;
+  document.getElementById('idea-count-posted').textContent = counts.Posted;
+  document.getElementById('idea-count-total').textContent = all.length;
+  
+  const grid = document.getElementById('ideas-grid');
+  if(!ideas.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--text-d);text-align:center;padding:32px;font-size:.82rem;">No ideas found. Click "+ New Idea" to create one.</div>';
+    return;
+  }
+  
+  const statusMap = {Idea:'💡',Scripted:'✍️',Recorded:'🎬',Posted:'✅'};
+  const statusBgMap = {Idea:'rgba(245,158,11,0.08)',Scripted:'rgba(167,139,250,0.08)',Recorded:'rgba(225,48,108,0.08)',Posted:'rgba(16,185,129,0.08)'};
+  
+  grid.innerHTML = ideas.map(i => {
+    const d = new Date(i.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return `<div class="idea-card" style="background:${statusBgMap[i.status]||'var(--glass)'};border-color:${statusBgMap[i.status]?'rgba(255,255,255,0.08)':''};position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+        <div class="idea-status-badge idea-status-${i.status}">${statusMap[i.status]||'📌'} ${i.status}</div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-primary btn-xs" onclick="openIdeaModal('${i.id}')">Edit</button>
+        </div>
+      </div>
+      <div style="font-size:.9rem;font-weight:700;margin-bottom:6px;">${escHtml(i.title)}</div>
+      ${i.desc ? `<div style="font-size:.78rem;color:var(--text-m);line-height:1.5;margin-bottom:8px;">${escHtml(i.desc)}</div>` : ''}
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <span class="idea-topic-badge">${i.topic||'Other'}</span>
+        <span style="font-size:.68rem;color:var(--text-d);margin-left:auto;">${d}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _ideaEditId = null;
+function openIdeaModal(id) {
+  _ideaEditId = id||null;
+  const i = id ? (state.ideas||[]).find(x=>x.id===id) : null;
+  document.getElementById('idea-modal-title').textContent = id ? '✏️ Edit Idea' : '💡 New Content Idea';
+  document.getElementById('idea-title').value = i ? i.title : '';
+  document.getElementById('idea-desc').value = i ? i.desc : '';
+  document.getElementById('idea-topic').value = i ? i.topic : 'Gold/XAU';
+  document.getElementById('idea-status').value = i ? i.status : 'Idea';
+  document.getElementById('idea-edit-id').value = id||'';
+  document.getElementById('idea-delete-btn').style.display = id ? 'block' : 'none';
+  openModal('modal-idea');
+}
+
+function saveIdea() {
+  const title = document.getElementById('idea-title').value.trim();
+  if(!title) { toast('Title required','error'); return; }
+  if(!state.ideas) state.ideas = [];
+  const idea = {
+    id: _ideaEditId||'i'+Date.now(),
+    title,
+    desc: document.getElementById('idea-desc').value.trim(),
+    topic: document.getElementById('idea-topic').value,
+    status: document.getElementById('idea-status').value,
+    createdAt: _ideaEditId ? (state.ideas.find(x=>x.id===_ideaEditId)?.createdAt||Date.now()) : Date.now()
+  };
+  if(_ideaEditId) {
+    const idx = state.ideas.findIndex(x=>x.id===_ideaEditId);
+    if(idx>-1) state.ideas[idx] = idea;
+  } else {
+    state.ideas.push(idea);
+  }
+  saveState(); closeModal('modal-idea'); renderIdeas();
+  toast(_ideaEditId?'Idea updated!':'Idea saved!','success');
+}
+
+function deleteIdea(id) {
+  if(!confirm('Delete this idea?')) return;
+  state.ideas = (state.ideas||[]).filter(i=>i.id!==id);
+  saveState(); renderIdeas(); toast('Idea deleted','info');
+}
+
+/* ─────────────────────────── GOAL COUNTDOWN ─────────────────────────── */
+function renderGoals() {
+  const goals = [...(state.goals||[])].sort((a,b) => a.deadline > b.deadline ? 1 : -1);
+  
+  // Countdown cards
+  const gridEl = document.getElementById('goals-countdown-grid');
+  if(!goals.length) {
+    gridEl.innerHTML = '<div style="color:var(--text-d);text-align:center;padding:32px;font-size:.82rem;grid-column:1/-1;">No goals yet. Click "+ Add Goal" to set one.</div>';
+  } else {
+    const now = new Date();
+    gridEl.innerHTML = goals.map(g => {
+      const deadline = new Date(g.deadline);
+      const days = Math.ceil((deadline - now)/(1000*60*60*24));
+      const past = days < 0;
+      const status = past ? `${Math.abs(days)} days ago` : `${days} days left`;
+      const color = g.color||'#6c63ff';
+      return `<div class="goal-countdown-card" style="background:linear-gradient(135deg,${color}22,${color}11);border:1px solid ${color}44;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+          <div style="font-size:2.4rem;">${g.emoji||'🎯'}</div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-primary btn-xs" onclick="openGoalCountdownModal('${g.id}')">Edit</button>
+          </div>
+        </div>
+        <div class="countdown-days" style="color:${color};">${Math.abs(days)}</div>
+        <div class="countdown-label">${past?'Passed':'Days Remaining'}</div>
+        <div class="countdown-title">${escHtml(g.title)}</div>
+        ${g.desc ? `<div class="countdown-desc">${escHtml(g.desc)}</div>` : ''}
+        <div class="countdown-deadline" style="color:${color};opacity:0.7;">📅 ${g.deadline}</div>
+      </div>`;
+    }).join('');
+  }
+  
+  // Timeline view
+  const tlEl = document.getElementById('goals-timeline');
+  if(!goals.length) {
+    tlEl.innerHTML = '<div style="color:var(--text-d);font-size:.8rem;padding:12px 0;">Add goals to see timeline.</div>';
+  } else {
+    const now = new Date();
+    tlEl.innerHTML = goals.map((g,i) => {
+      const deadline = new Date(g.deadline);
+      const days = Math.ceil((deadline - now)/(1000*60*60*24));
+      const past = days < 0;
+      const color = g.color||'#6c63ff';
+      return `<div class="timeline-item">
+        <div class="timeline-dot" style="background:${color};box-shadow:0 0 8px ${color}99;"></div>
+        <div class="timeline-name">${escHtml(g.title)}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div class="timeline-days" style="color:${color};">${Math.abs(days)}</div>
+          <div class="timeline-label" style="font-size:.65rem;color:var(--text-d);">${past?'ago':'left'}</div>
+          <div class="timeline-date">${g.deadline}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+let _gcEditId = null;
+function openGoalCountdownModal(id) {
+  _gcEditId = id||null;
+  const g = id ? (state.goals||[]).find(x=>x.id===id) : null;
+  document.getElementById('goal-countdown-modal-title').textContent = id ? '✏️ Edit Goal' : '🎯 Add Goal';
+  document.getElementById('gc-title').value = g ? g.title : '';
+  document.getElementById('gc-emoji').value = g ? g.emoji : '🎯';
+  document.getElementById('gc-color').value = g ? g.color : '#6c63ff';
+  document.getElementById('gc-deadline').value = g ? g.deadline : '';
+  document.getElementById('gc-desc').value = g ? g.desc : '';
+  document.getElementById('gc-edit-id').value = id||'';
+  document.getElementById('gc-delete-btn').style.display = id ? 'block' : 'none';
+  openModal('modal-goal-countdown');
+}
+
+function saveGoalCountdown() {
+  const title = document.getElementById('gc-title').value.trim();
+  const deadline = document.getElementById('gc-deadline').value;
+  if(!title || !deadline) { toast('Title and deadline required','error'); return; }
+  if(!state.goals) state.goals = [];
+  const goal = {
+    id: _gcEditId||'g'+Date.now(),
+    title,
+    deadline,
+    emoji: document.getElementById('gc-emoji').value.trim()||'🎯',
+    color: document.getElementById('gc-color').value||'#6c63ff',
+    desc: document.getElementById('gc-desc').value.trim()
+  };
+  if(_gcEditId) {
+    const idx = state.goals.findIndex(x=>x.id===_gcEditId);
+    if(idx>-1) state.goals[idx] = goal;
+  } else {
+    state.goals.push(goal);
+  }
+  saveState(); closeModal('modal-goal-countdown'); renderGoals();
+  toast(_gcEditId?'Goal updated!':'Goal saved!','success');
+}
+
+function deleteGoalCountdown(id) {
+  if(!confirm('Delete this goal?')) return;
+  state.goals = (state.goals||[]).filter(g=>g.id!==id);
+  saveState(); renderGoals(); toast('Goal deleted','info');
+}
+
+/* ─────────────────────────── DELETE FUNCTIONS ─────────────────────────── */
+function delHabit(id) {
+  if(!id || !confirm('Delete this habit and all its logs?')) return;
+  if(!state.habits) state.habits = [];
+  state.habits = state.habits.filter(h => h.id != id);
+  if(state.habitLogs) {
+    Object.keys(state.habitLogs).forEach(d => {
+      if(state.habitLogs[d] && state.habitLogs[d][id]) delete state.habitLogs[d][id];
+    });
+  }
+  saveState(); renderHabits(); toast('Habit deleted','success');
+}
+
+function delIdea(id) {
+  if(!id || !confirm('Delete this idea?')) return;
+  if(!state.ideas) state.ideas = [];
+  state.ideas = state.ideas.filter(i => i.id != id);
+  saveState(); renderIdeas(); toast('Idea deleted','info');
+}
+
+function delGoal(id) {
+  if(!id || !confirm('Delete this goal?')) return;
+  if(!state.goals) state.goals = [];
+  state.goals = state.goals.filter(g => g.id != id);
+  saveState(); renderGoals(); toast('Goal deleted','info');
+}
+
+/* ─────────────────────────── KEYBOARD SHORTCUTS ─────────────────────────── */
+document.addEventListener('keydown', e=>{
+  if(e.altKey) {
+    if(e.key==='1') document.querySelector('.nav-item:nth-child(2)').click();
+    if(e.key==='2') document.querySelector('.nav-item:nth-child(3)').click();
+    if(e.key==='3') document.querySelector('.nav-item:nth-child(4)').click();
+    if(e.key==='4') document.querySelector('.nav-item:nth-child(5)').click();
+  }
+  if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+});
+</script>
+</body>
+</html>
